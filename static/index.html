@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.2">
 </head>
 <body>
     <div class="background-glow top-left"></div>
@@ -30,10 +30,17 @@
                 <a href="#features" class="nav-link">Features</a>
                 <a href="#how-it-works" class="nav-link">How it Works</a>
                 <a href="#faq" class="nav-link">FAQ</a>
+                <a href="https://aakash-sakhalkar.web.app/" target="_blank" rel="noopener noreferrer" class="nav-link nav-dev-link"><i class="fa-solid fa-laptop-code"></i> Developer</a>
             </nav>
-            <div class="badge-status">
-                <span class="status-dot"></span>
-                <span>Public Posts Only</span>
+            <div class="nav-actions">
+                <a href="https://aakash-sakhalkar.web.app/" target="_blank" rel="noopener noreferrer" class="btn-dev-portfolio" title="Visit Developer Portfolio">
+                    <i class="fa-solid fa-circle-user"></i>
+                    <span>Portfolio</span>
+                </a>
+                <div class="badge-status">
+                    <span class="status-dot"></span>
+                    <span>Public Posts Only</span>
+                </div>
             </div>
         </div>
     </header>
@@ -47,14 +54,21 @@
             <h1 class="hero-title">Download Public Videos & Photos</h1>
             <p class="hero-subtitle">
                 Instantly grab high-resolution media from <span class="platform-highlight ig">Instagram</span>, 
-                <span class="platform-highlight x">Twitter/X</span>, <span class="platform-highlight rd">Reddit</span>, and 
-                <span class="platform-highlight fb">Facebook</span> with zero watermarks.
+                <span class="platform-highlight tt">TikTok</span>, <span class="platform-highlight yt">YouTube</span>, 
+                <span class="platform-highlight x">Twitter/X</span>, <span class="platform-highlight rd">Reddit</span>, 
+                <span class="platform-highlight fb">Facebook</span>, and <span class="platform-highlight pin">Pinterest</span> with zero watermarks.
             </p>
 
             <!-- Supported Platforms Badges -->
             <div class="platforms-row">
                 <div class="platform-chip" data-platform="instagram">
                     <i class="fa-brands fa-instagram"></i> Instagram
+                </div>
+                <div class="platform-chip" data-platform="tiktok">
+                    <i class="fa-brands fa-tiktok"></i> TikTok
+                </div>
+                <div class="platform-chip" data-platform="youtube">
+                    <i class="fa-brands fa-youtube"></i> YouTube / Shorts
                 </div>
                 <div class="platform-chip" data-platform="twitter">
                     <i class="fa-brands fa-x-twitter"></i> Twitter / X
@@ -65,8 +79,14 @@
                 <div class="platform-chip" data-platform="facebook">
                     <i class="fa-brands fa-facebook"></i> Facebook
                 </div>
-                <div class="platform-chip" data-platform="tiktok">
-                    <i class="fa-brands fa-tiktok"></i> TikTok
+                <div class="platform-chip" data-platform="pinterest">
+                    <i class="fa-brands fa-pinterest"></i> Pinterest
+                </div>
+                <div class="platform-chip" data-platform="threads">
+                    <i class="fa-brands fa-threads"></i> Threads
+                </div>
+                <div class="platform-chip all-sites">
+                    <i class="fa-solid fa-globe"></i> +1000 More Sites
                 </div>
             </div>
 
@@ -223,6 +243,14 @@
                 <span class="footer-logo-text">Save<span class="gradient-text">Pulse</span></span>
             </div>
             <p class="footer-tagline">Fast, Free & Safe Universal Public Media Downloader</p>
+            
+            <div class="footer-creator">
+                <span>Crafted & Developed by</span>
+                <a href="https://aakash-sakhalkar.web.app/" target="_blank" rel="noopener noreferrer" class="developer-badge">
+                    <i class="fa-solid fa-code"></i> Aakash Sakhalkar
+                </a>
+            </div>
+
             <p class="footer-copy">© 2026 SavePulse. Created for educational and personal utility purposes. All trademarks belong to their respective owners.</p>
         </div>
     </footer>
@@ -230,6 +258,6 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2.1"></script>
 </body>
 </html>

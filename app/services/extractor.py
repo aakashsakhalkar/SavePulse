@@ -253,11 +253,15 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                     "filesize_str": best_audio["filesize_str"]
                 })
 
-        media_type = "video"
-        if all(item.get("type") == "image" for item in items):
+        # Determine media_type
+        if entries and len(entries) > 1:
+            media_type = "gallery"
+        elif all(item.get("type") == "image" for item in items):
             media_type = "image"
         elif any(item.get("type") == "video" for item in items):
             media_type = "video"
+        else:
+            media_type = "image"
 
         return {
             "platform": platform,

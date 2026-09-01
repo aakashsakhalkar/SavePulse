@@ -11,15 +11,16 @@
   [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
   <p align="center">
-    <strong>Fast, login-free, high-definition media downloader for Instagram, Twitter/X, Reddit, Facebook, TikTok, and more.</strong>
+    <strong>Fast, login-free, high-definition media downloader for Instagram, TikTok, YouTube Shorts, Twitter/X, Reddit, Facebook, Pinterest, and 1000+ public sites.</strong>
   </p>
 
   [Key Features](#-key-features) •
   [Architecture & Diagrams](#-system-architecture) •
-  [Data Flow](#-data-flow--extraction-pipeline) •
   [Directory Structure](#-project-structure) •
   [API Reference](#-api-documentation) •
-  [Getting Started](#-getting-started)
+  [Deployment Guide](#-deployment-guide-netlify--render) •
+  [Bugs, Fixes & Changelog](#-bugs-fixes--changelog) •
+  [Developer](#-developer--author)
 
 </div>
 
@@ -27,9 +28,20 @@
 
 ## 🌟 Key Features
 
-- **🌐 Multi-Platform Engine**: Seamlessly extract media from **Instagram** (Reels, Posts), **Twitter/X** (Videos, GIFs), **Reddit** (Videos, Galleries, Images), **Facebook** (Reels, Public Videos), **TikTok**, and **YouTube Shorts**.
-- **🔒 100% Privacy & Zero-Auth**: Operates strictly on **public posts**. Never requests passwords, login cookies, or user credentials.
-- **⚡ High-Speed Direct Stream Proxy**: Bypasses browser CORS restrictions and streams files with auto-naming and proper content headers (`.mp4`, `.jpg`, `.mp3`).
+- **🌐 Broad Multi-Platform Support**:
+  - **Instagram**: Public Reels, IGTV, Video Posts, and Multi-Image/Video Carousels (swipe posts).
+  - **TikTok**: Public videos (without watermarks) and audio MP3 rips.
+  - **YouTube & Shorts**: High-resolution video streams, Shorts, and high-bitrate audio extraction.
+  - **Twitter / X**: Video tweets, animated GIFs, and high-res photo attachments.
+  - **Reddit**: Native videos (`v.redd.it`), Multi-Image Galleries, and single image posts.
+  - **Facebook**: Public Reels, Facebook Watch videos, and timeline videos.
+  - **Pinterest & Threads**: High-resolution pins and public media threads.
+  - **+1000 More Sites**: Supported natively through the universal `yt-dlp` core engine.
+- **📱 Smart Responsive Media Grid**:
+  - **Single Posts**: Sleek side-by-side card with an embedded player/image on the left and format selector on the right.
+  - **Multi-Item Collections (Carousels & Galleries up to 20+ items)**: Automatic **Responsive Grid** rendering each video/photo as an individual standalone card with its own player, index badge (`#1`, `#2` …), and direct download button.
+- **🔒 100% Privacy & Zero-Auth**: Operates strictly on **public posts**. Never requests passwords, session cookies, or user credentials.
+- **⚡ High-Speed Direct Stream Proxy (`/api/download`)**: Bypasses browser CORS restrictions and streams files with auto-naming and proper content headers (`.mp4`, `.jpg`, `.mp3`).
 - **🎛️ Multiple Quality Options**: Select between **1080p Full HD**, **720p HD**, **480p SD**, or direct **MP3 Audio Rips**.
 - **🎨 Glassmorphic Modern UI**: Dark-mode aesthetic with ambient glow effects, responsive layout, clipboard auto-paste, and embedded live video/image previews.
 
@@ -48,7 +60,7 @@ graph TD
         FastAPI --> Router[Unified Extractor Router]
         
         Router -->|Reddit URLs| RedditEngine[Reddit JSON API Engine]
-        Router -->|IG / X / FB / TikTok| YtDlpEngine[yt-dlp Core Extractor]
+        Router -->|IG / TikTok / YT / X / FB| YtDlpEngine[yt-dlp Core Extractor]
         
         RedditEngine --> MetadataParser[Metadata & Stream Normalizer]
         YtDlpEngine --> MetadataParser
@@ -63,8 +75,6 @@ graph TD
 ---
 
 ## 🔄 Data Flow & Extraction Pipeline
-
-Below is the step-by-step lifecycle of a download request from URL submission to final media delivery:
 
 ```mermaid
 sequenceDiagram
@@ -82,17 +92,22 @@ sequenceDiagram
     alt Reddit Post
         Extractor->>CDN: GET https://reddit.com/.../post.json
         CDN-->>Extractor: JSON Metadata (v.redd.it / i.redd.it)
-    else Instagram / Twitter / Facebook
+    else Instagram / TikTok / YouTube / Twitter / Facebook
         Extractor->>CDN: Intercept Media Stream Manifests (yt-dlp)
         CDN-->>Extractor: Video formats, Bitrates & Thumbnails
     end
 
     Extractor-->>API: Normalized Media Schema
-    API-->>UI: { success: true, data: { items: [...], thumbnail, author } }
-    UI->>User: Render Live Video Player + Download Quality Buttons
+    API-->>UI: { success: true, data: { items: [...], thumbnail, author, media_type } }
+    
+    alt Single Item Post
+        UI->>User: Render Single Player + Quality Buttons
+    else Multi-Item Carousel (2 to 20+ items)
+        UI->>User: Render Responsive Multi-Card Grid with Individual Players
+    end
 
-    User->>UI: Click "Download 1080p (MP4)"
-    UI->>API: GET /api/download?url=...&filename=SavePulse_video.mp4
+    User->>UI: Click "Download Video"
+    UI->>API: GET /api/download?url=...&filename=savepulse_video.mp4
     API->>CDN: Stream Raw Chunks (64KB Buffer)
     API-->>User: StreamingResponse with 'Content-Disposition: attachment'
     Note over User: Browser automatically saves file to Downloads folder
@@ -113,7 +128,7 @@ social-media-downloader/
 │       └── extractor.py            # Unified extraction logic (Reddit JSON + yt-dlp)
 │
 ├── static/
-│   ├── favicon.svg                 # SavePulse custom brand icon
+│   ├── favicon.svg                 # SavePulse custom brand icon & logo
 │   ├── index.html                  # Single-Page Application HTML5 structure
 │   ├── css/
 │   │   └── style.css               # Glassmorphism dark-mode UI & responsive styling
@@ -122,6 +137,7 @@ social-media-downloader/
 │
 ├── requirements.txt                # Python backend dependencies
 ├── test_extractor.py               # Diagnostic test script for endpoint verification
+├── .gitignore                      # Git ignore rules for Python & venv
 └── README.md                       # Complete documentation
 ```
 
@@ -192,71 +208,50 @@ Proxies the raw CDN media stream with customized attachment headers so the brows
 * **Endpoint**: `GET /api/download`
 * **Query Parameters**:
   * `url` *(string, required)*: Direct CDN stream URL returned by `/api/extract`.
-  * `filename` *(string, optional)*: Desired filename (e.g. `instagram_video.mp4`).
+  * `filename` *(string, optional)*: Desired filename (e.g. `savepulse_instagram_1.mp4`).
 
 ---
 
-## 🚀 Getting Started
+## ☁️ Deployment Guide (Netlify + Render)
 
-### Prerequisites
+Because **SavePulse** uses a Python **FastAPI backend** and a **Static Frontend**, the ideal production architecture is:
+1. **Frontend (`static/`)** ➔ Deployed on **Netlify**.
+2. **Backend (`app/`)** ➔ Deployed on **Render.com** (Free Web Service).
 
-* **Python 3.10+**
-* **Git** (optional)
-
-### 1. Clone or Open Project Directory
-
+### 1. Deploy Frontend to Netlify
 ```powershell
-cd C:\Users\Admin\.gemini\antigravity-ide\scratch\social-media-downloader
+# Deploy the static directory directly to production
+netlify deploy --dir=static --prod
 ```
 
-### 2. Create and Activate Virtual Environment
-
-**On Windows (PowerShell):**
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-**On Linux / macOS:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run the Application
-
-```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Open your browser and navigate to:
-👉 **`http://localhost:8000`**
+### 2. Deploy Backend to Render.com
+1. Go to [render.com](https://render.com) and click **New + ➔ Web Service**.
+2. Connect your **`SavePulse`** GitHub repository.
+3. Configure the following settings:
+   - **Runtime**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - **Instance Type**: `Free`
+4. Click **Deploy Web Service** and copy your live Render URL.
 
 ---
 
-## 📊 Platform Extraction Matrix
+## 🐛 Bugs, Fixes & Changelog
 
-| Platform | Supported Media | Mechanism | Average Response Time |
-| :--- | :--- | :--- | :--- |
-| **Instagram** | Reels, Video Posts, Photos | Public Embed & `yt-dlp` | ~1.2s |
-| **Twitter / X** | Videos, GIFs, Image attachments | Syndication API & `yt-dlp` | ~0.9s |
-| **Reddit** | `v.redd.it` Videos, Galleries, Single Images | Unauthenticated `.json` API | ~0.3s (Ultra-fast) |
-| **Facebook** | Public Videos, Facebook Watch | OpenGraph Parser & `yt-dlp` | ~1.4s |
-| **TikTok** | Public Videos, Audio Rips | Direct Manifest Extractor | ~1.1s |
+| Issue / Bug | Root Cause | Resolution / Fix Applied |
+| :--- | :--- | :--- |
+| **Missing CSS & Favicon on Netlify (404s)** | Paths in `index.html` were absolute (`/static/css/style.css`), but Netlify deployed `static/` as the site root (`/`). | Converted all asset links to relative paths (`css/style.css`, `favicon.svg`, `js/app.js`), ensuring compatibility across Netlify and local servers. |
+| **Only 1 Preview Shown for Multi-Item Carousels** | The frontend preview player was hardcoded to only mount the first element (`items[0]`), while `extractor.py` was overriding `media_type` to `"video"`. | Fixed `media_type = "gallery"` detection in `extractor.py` and implemented the **Responsive Multi-Card Grid** in `app.js` with individual players for each slide. |
+| **Multi-Card Grid Stacking Vertically** | The outer `.result-body` container retained a fixed `340px 1fr` single-post column constraint. | Added `.result-body.is-multi` with `display: block` and `repeat(auto-fit, minmax(320px, 1fr))` grid styling so cards span full width in 2–4 side-by-side columns. |
+| **Browser Caching Old Scripts** | Browsers were caching older versions of `style.css` and `app.js` across reloads. | Implemented cache-busting version query parameters (`css/style.css?v=2.x`, `js/app.js?v=2.x`) in `index.html`. |
+| **Private Posts Failing** | Private accounts require authentication cookies not accessible via unauthenticated public endpoints. | Added explicit user feedback and error toasts informing users that only public posts are supported. |
 
 ---
 
-## 🛡️ Privacy & Compliance
+## 👨‍💻 Developer & Author
 
-1. **Public Media Only**: SavePulse is designed exclusively for publicly available content.
-2. **No User Data Storage**: No personal data, session cookies, search queries, or downloaded media files are stored on the server disk.
-3. **Stream Pipe**: Media chunks are proxied on-the-fly directly to the user's browser in memory and cleared immediately.
+* **Created by**: **Aakash Sakhalkar**
+* **Portfolio**: [https://aakash-sakhalkar.web.app/](https://aakash-sakhalkar.web.app/)
 
 ---
 
