@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SavePulse — Universal Public Social Media Downloader</title>
+    <meta name="description" content="Download public videos, reels, photos, and audio from Instagram, Twitter/X, Reddit, and Facebook in HD quality with SavePulse.">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="alternate icon" href="favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="background-glow top-left"></div>
+    <div class="background-glow bottom-right"></div>
+
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <img src="favicon.svg" alt="SavePulse Logo" class="logo-img">
+                <span class="logo-text">Save<span class="gradient-text">Pulse</span></span>
+            </div>
+            <nav class="nav-links">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#how-it-works" class="nav-link">How it Works</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+            </nav>
+            <div class="badge-status">
+                <span class="status-dot"></span>
+                <span>Public Posts Only</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-badge">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 100% Free • No Login Required • Ultra HD
+            </div>
+            <h1 class="hero-title">Download Public Videos & Photos</h1>
+            <p class="hero-subtitle">
+                Instantly grab high-resolution media from <span class="platform-highlight ig">Instagram</span>, 
+                <span class="platform-highlight x">Twitter/X</span>, <span class="platform-highlight rd">Reddit</span>, and 
+                <span class="platform-highlight fb">Facebook</span> with zero watermarks.
+            </p>
+
+            <!-- Supported Platforms Badges -->
+            <div class="platforms-row">
+                <div class="platform-chip" data-platform="instagram">
+                    <i class="fa-brands fa-instagram"></i> Instagram
+                </div>
+                <div class="platform-chip" data-platform="twitter">
+                    <i class="fa-brands fa-x-twitter"></i> Twitter / X
+                </div>
+                <div class="platform-chip" data-platform="reddit">
+                    <i class="fa-brands fa-reddit-alien"></i> Reddit
+                </div>
+                <div class="platform-chip" data-platform="facebook">
+                    <i class="fa-brands fa-facebook"></i> Facebook
+                </div>
+                <div class="platform-chip" data-platform="tiktok">
+                    <i class="fa-brands fa-tiktok"></i> TikTok
+                </div>
+            </div>
+
+            <!-- Input URL Card -->
+            <div class="downloader-card">
+                <form id="download-form" class="url-form">
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-link input-icon"></i>
+                        <input 
+                            type="url" 
+                            id="url-input" 
+                            placeholder="Paste public link here (e.g. https://www.instagram.com/reel/...)" 
+                            required 
+                            autocomplete="off"
+                            spellcheck="false"
+                        />
+                        <button type="button" id="paste-btn" class="btn-paste" title="Paste from Clipboard">
+                            <i class="fa-regular fa-paste"></i> Paste
+                        </button>
+                        <button type="button" id="clear-btn" class="btn-clear hidden" title="Clear URL">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <button type="submit" id="submit-btn" class="btn-submit">
+                        <span class="btn-text"><i class="fa-solid fa-cloud-arrow-down"></i> Fetch Media</span>
+                        <span class="btn-loader hidden"><i class="fa-solid fa-circle-notch fa-spin"></i> Processing...</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Loading State Indicator -->
+        <div id="loading-container" class="loading-container hidden">
+            <div class="spinner-radar"></div>
+            <p class="loading-text">Analyzing link and extracting highest resolution streams...</p>
+            <span class="loading-hint">Connecting to public CDN nodes</span>
+        </div>
+
+        <!-- Dynamic Results Card -->
+        <section id="results-container" class="results-container hidden">
+            <div class="result-card">
+                <div class="result-header">
+                    <div class="platform-meta">
+                        <span id="result-platform-badge" class="platform-badge"><i class="fa-brands fa-instagram"></i> Instagram</span>
+                        <span id="result-type-badge" class="type-badge"><i class="fa-solid fa-video"></i> Video</span>
+                    </div>
+                    <button id="close-result-btn" class="btn-close-result"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div class="result-body">
+                    <!-- Media Preview Area -->
+                    <div class="preview-column">
+                        <div id="media-preview-box" class="preview-box">
+                            <!-- Video Player or Image Gallery rendered via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Details & Download Options -->
+                    <div class="details-column">
+                        <div class="author-row">
+                            <div class="author-avatar"><i class="fa-solid fa-user"></i></div>
+                            <div class="author-info">
+                                <span id="result-author" class="author-name">@author</span>
+                                <span class="author-sub">Public Creator</span>
+                            </div>
+                        </div>
+                        <h3 id="result-title" class="post-title">Post Title or Caption</h3>
+
+                        <div class="downloads-section">
+                            <h4 class="section-heading"><i class="fa-solid fa-download"></i> Available Formats</h4>
+                            <div id="download-options-list" class="options-list">
+                                <!-- Rendered dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Showcase -->
+        <section id="features" class="features-section">
+            <h2 class="section-title">Why Choose SavePulse?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                    <h3>Safe & Private</h3>
+                    <p>No user login or account required. We only fetch public posts and do not store your browsing data.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                    <h3>Direct CDN Speed</h3>
+                    <p>High-speed stream proxying delivers full original quality without compression or watermarks.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <h3>Multi-Format Support</h3>
+                    <p>Download 1080p/4K MP4 videos, crystal-clear MP3 audio rips, or full-resolution JPG/PNG galleries.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section id="how-it-works" class="steps-section">
+            <h2 class="section-title">How To Download In 3 Steps</h2>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <span class="step-num">1</span>
+                    <h4>Copy Public Link</h4>
+                    <p>Copy the share URL of any public post, reel, or tweet from your social media app.</p>
+                </div>
+                <div class="step-card">
+                    <span class="step-num">2</span>
+                    <h4>Paste in SavePulse</h4>
+                    <p>Paste the URL into the input field above and click <strong>Fetch Media</strong>.</p>
+                </div>
+                <div class="step-card">
+                    <span class="step-num">3</span>
+                    <h4>Select & Download</h4>
+                    <p>Pick your preferred resolution (1080p, 720p, or MP3) and download instantly to your device.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section id="faq" class="faq-section">
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <div class="faq-accordion">
+                <details class="faq-item">
+                    <summary class="faq-question">Can I download private posts or stories?</summary>
+                    <div class="faq-answer">
+                        <p>No. SavePulse is designed strictly for publicly accessible posts. It respects privacy and does not bypass private account restrictions.</p>
+                    </div>
+                </details>
+                <details class="faq-item">
+                    <summary class="faq-question">Are there any download limits or fees?</summary>
+                    <div class="faq-answer">
+                        <p>SavePulse is 100% free with unlimited public downloads for personal use.</p>
+                    </div>
+                </details>
+                <details class="faq-item">
+                    <summary class="faq-question">Where are downloaded files saved?</summary>
+                    <div class="faq-answer">
+                        <p>Files are saved directly to your device's default <strong>Downloads</strong> folder as standard MP4, MP3, or JPG files.</p>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <img src="favicon.svg" alt="SavePulse Logo" class="footer-logo-img">
+                <span class="footer-logo-text">Save<span class="gradient-text">Pulse</span></span>
+            </div>
+            <p class="footer-tagline">Fast, Free & Safe Universal Public Media Downloader</p>
+            <p class="footer-copy">© 2026 SavePulse. Created for educational and personal utility purposes. All trademarks belong to their respective owners.</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
