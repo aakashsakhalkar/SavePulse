@@ -1,3 +1,14 @@
+// ==============================================================================
+// 1. BACKEND API CONFIGURATION
+// - On your computer (localhost), it uses the local server: ""
+// - On Netlify (production), it uses your Render cloud server
+// ==============================================================================
+let API_BASE_URL = "https://savepulse-api.onrender.com";
+
+if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    API_BASE_URL = "";
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const downloadForm = document.getElementById('download-form');
     const urlInput = document.getElementById('url-input');
@@ -6,11 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.getElementById('submit-btn');
     const btnText = submitBtn.querySelector('.btn-text');
     const btnLoader = submitBtn.querySelector('.btn-loader');
-    
+
     const loadingContainer = document.getElementById('loading-container');
     const resultsContainer = document.getElementById('results-container');
     const closeResultBtn = document.getElementById('close-result-btn');
-    
+
     const platformBadge = document.getElementById('result-platform-badge');
     const typeBadge = document.getElementById('result-type-badge');
     const resultAuthor = document.getElementById('result-author');
@@ -67,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.classList.add('hidden');
 
         try {
-            const response = await fetch('/api/extract', {
+            const response = await fetch(`${API_BASE_URL}/api/extract`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: url })
@@ -121,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const iconClass = platformIcons[platform] || 'fa-solid fa-link';
         platformBadge.innerHTML = `<i class="${iconClass}"></i> ${platform.toUpperCase()}`;
-        
+
         const typeIcons = {
             video: '<i class="fa-solid fa-video"></i> Video',
             image: '<i class="fa-solid fa-image"></i> Photo',
@@ -139,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (items && items.length > 1 && (media_type === 'gallery' || isMultiItem(items))) {
             resultBody.classList.add('is-multi');
             resultBody.innerHTML = '';
-            
+
             const multiWrapper = document.createElement('div');
             multiWrapper.className = 'multi-grid-wrapper';
             multiWrapper.style.width = '100%';
@@ -162,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const cleanExt = item.ext || (item.type === 'video' ? 'mp4' : item.type === 'audio' ? 'mp3' : 'jpg');
                 const safeName = `${platform}_${Date.now()}_${index + 1}.${cleanExt}`;
-                const downloadHref = `/api/download?url=${encodeURIComponent(item.url)}&filename=${encodeURIComponent(safeName)}`;
+                const downloadHref = `${API_BASE_URL}/api/download?url=${encodeURIComponent(item.url)}&filename=${encodeURIComponent(safeName)}`;
 
                 // Card Preview Content
                 let mediaElementHtml = '';
@@ -240,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.className = 'option-btn';
                     const cleanExt = item.ext || (item.type === 'video' ? 'mp4' : item.type === 'audio' ? 'mp3' : 'jpg');
                     const safeName = `${platform}_${Date.now()}_${index + 1}.${cleanExt}`;
-                    btn.href = `/api/download?url=${encodeURIComponent(item.url)}&filename=${encodeURIComponent(safeName)}`;
+                    btn.href = `${API_BASE_URL}/api/download?url=${encodeURIComponent(item.url)}&filename=${encodeURIComponent(safeName)}`;
                     btn.setAttribute('download', safeName);
 
                     btn.innerHTML = `
@@ -266,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function isMultiItem(items) {
         if (!items || items.length <= 1) return false;
         // If items are labeled Item #1, Item #2, Image #1, Image #2, or have distinct media ids
-        return items.some(i => 
+        return items.some(i =>
             (i.quality && (i.quality.includes('Item #') || i.quality.includes('Image #'))) ||
             (i.id && (i.id.includes('gallery') || i.id.includes('media_item')))
         );
@@ -379,10 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        
+
         const icon = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation';
         toast.innerHTML = `<i class="${icon}"></i> <span>${message}</span>`;
-        
+
         toastContainer.appendChild(toast);
 
         setTimeout(() => {
