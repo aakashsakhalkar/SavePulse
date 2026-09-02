@@ -1,12 +1,12 @@
 // ==============================================================================
 // 1. BACKEND API CONFIGURATION
-// - On your computer (localhost), it uses the local server: ""
-// - On Netlify (production), it uses your Render cloud server
+// - On Netlify / Cloud: uses https://savepulse-k9d8.onrender.com
+// - On local computer (localhost): uses "" (or set to Render backend)
 // ==============================================================================
-let API_BASE_URL = "https://savepulse-api.onrender.com";
+let API_BASE_URL = "https://savepulse-k9d8.onrender.com";
 
 if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    API_BASE_URL = "";
+    API_BASE_URL = ""; // Change to "https://savepulse-k9d8.onrender.com" if you want localhost to talk to Render
 }
 
 document.addEventListener('DOMContentLoaded', () => {

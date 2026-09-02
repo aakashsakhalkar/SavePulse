@@ -8,14 +8,20 @@
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0+-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
   [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
   [![yt-dlp](https://img.shields.io/badge/yt--dlp-Latest-FF0000.svg?style=for-the-badge&logo=youtube&logoColor=white)](https://github.com/yt-dlp/yt-dlp)
+  [![Netlify](https://img.shields.io/badge/Netlify-Live_Site-00C7B7.svg?style=for-the-badge&logo=netlify&logoColor=white)](https://as-savepulse.netlify.app/)
+  [![Render](https://img.shields.io/badge/Render-Live_API-46E3B7.svg?style=for-the-badge&logo=render&logoColor=white)](https://savepulse-k9d8.onrender.com)
   [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
   <p align="center">
     <strong>Fast, login-free, high-definition media downloader for Instagram, TikTok, YouTube Shorts, Twitter/X, Reddit, Facebook, Pinterest, and 1000+ public sites.</strong>
   </p>
 
+  ### 🌐 [Live Website: as-savepulse.netlify.app](https://as-savepulse.netlify.app/)
+  ### 🚀 [Live Backend API: savepulse-k9d8.onrender.com](https://savepulse-k9d8.onrender.com)
+
   [Key Features](#-key-features) •
   [Architecture & Diagrams](#-system-architecture) •
+  [Data Flow](#-data-flow--extraction-pipeline) •
   [Directory Structure](#-project-structure) •
   [API Reference](#-api-documentation) •
   [Deployment Guide](#-deployment-guide-netlify--render) •
@@ -49,14 +55,14 @@
 
 ## 🏗️ System Architecture
 
-SavePulse uses a decoupled full-stack architecture. The lightweight frontend handles user interaction and instant media previews, while the FastAPI backend orchestrates public REST APIs and the `yt-dlp` extraction engine.
+SavePulse uses a decoupled full-stack architecture. The frontend is hosted on **Netlify** while the backend runs as a high-performance Python ASGI service on **Render.com**.
 
 ```mermaid
 graph TD
-    User([👤 User Browser]) -->|1. Paste Public URL| Frontend[🎨 SavePulse Frontend UI]
-    Frontend -->|2. POST /api/extract| FastAPI[⚡ FastAPI Backend Server]
+    User([👤 User Browser]) -->|1. Paste Public URL| Frontend[🎨 SavePulse Frontend UI on Netlify]
+    Frontend -->|2. POST /api/extract| FastAPI[⚡ FastAPI Backend on Render.com]
     
-    subgraph Backend Core
+    subgraph Backend Core on Render
         FastAPI --> Router[Unified Extractor Router]
         
         Router -->|Reddit URLs| RedditEngine[Reddit JSON API Engine]
@@ -80,13 +86,13 @@ graph TD
 sequenceDiagram
     autonumber
     actor User as 👤 Client Browser
-    participant UI as 🖥️ SavePulse UI
-    participant API as ⚡ FastAPI Backend
+    participant UI as 🖥️ SavePulse UI (Netlify)
+    participant API as ⚡ FastAPI Backend (Render)
     participant Extractor as 🔍 Extractor Service
     participant CDN as 🌐 Social Media CDN
 
     User->>UI: Paste public post link
-    UI->>API: POST /api/extract { url: "..." }
+    UI->>API: POST https://savepulse-k9d8.onrender.com/api/extract { url: "..." }
     API->>Extractor: extract_media(url)
     
     alt Reddit Post
@@ -107,7 +113,7 @@ sequenceDiagram
     end
 
     User->>UI: Click "Download Video"
-    UI->>API: GET /api/download?url=...&filename=savepulse_video.mp4
+    UI->>API: GET https://savepulse-k9d8.onrender.com/api/download?url=...&filename=savepulse_video.mp4
     API->>CDN: Stream Raw Chunks (64KB Buffer)
     API-->>User: StreamingResponse with 'Content-Disposition: attachment'
     Note over User: Browser automatically saves file to Downloads folder
@@ -137,13 +143,15 @@ social-media-downloader/
 │
 ├── requirements.txt                # Python backend dependencies
 ├── test_extractor.py               # Diagnostic test script for endpoint verification
-├── .gitignore                      # Git ignore rules for Python & venv
+├── .gitignore                      # Git ignore rules for Python, venv & Netlify cache
 └── README.md                       # Complete documentation
 ```
 
 ---
 
 ## 🔌 API Documentation
+
+Live Base URL: `https://savepulse-k9d8.onrender.com`
 
 ### 1. Extract Media Metadata
 
@@ -214,25 +222,19 @@ Proxies the raw CDN media stream with customized attachment headers so the brows
 
 ## ☁️ Deployment Guide (Netlify + Render)
 
-Because **SavePulse** uses a Python **FastAPI backend** and a **Static Frontend**, the ideal production architecture is:
-1. **Frontend (`static/`)** ➔ Deployed on **Netlify**.
-2. **Backend (`app/`)** ➔ Deployed on **Render.com** (Free Web Service).
-
-### 1. Deploy Frontend to Netlify
+### 1. Frontend on Netlify
 ```powershell
-# Deploy the static directory directly to production
+# Deploy static assets directly to production
 netlify deploy --dir=static --prod
 ```
+Live URL: **`https://as-savepulse.netlify.app/`**
 
-### 2. Deploy Backend to Render.com
-1. Go to [render.com](https://render.com) and click **New + ➔ Web Service**.
-2. Connect your **`SavePulse`** GitHub repository.
-3. Configure the following settings:
-   - **Runtime**: `Python 3`
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-   - **Instance Type**: `Free`
-4. Click **Deploy Web Service** and copy your live Render URL.
+### 2. Backend on Render.com
+Live URL: **`https://savepulse-k9d8.onrender.com`**
+* **Runtime**: `Python 3`
+* **Build Command**: `pip install -r requirements.txt`
+* **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+* **Instance Type**: `Free`
 
 ---
 
@@ -244,6 +246,7 @@ netlify deploy --dir=static --prod
 | **Only 1 Preview Shown for Multi-Item Carousels** | The frontend preview player was hardcoded to only mount the first element (`items[0]`), while `extractor.py` was overriding `media_type` to `"video"`. | Fixed `media_type = "gallery"` detection in `extractor.py` and implemented the **Responsive Multi-Card Grid** in `app.js` with individual players for each slide. |
 | **Multi-Card Grid Stacking Vertically** | The outer `.result-body` container retained a fixed `340px 1fr` single-post column constraint. | Added `.result-body.is-multi` with `display: block` and `repeat(auto-fit, minmax(320px, 1fr))` grid styling so cards span full width in 2–4 side-by-side columns. |
 | **Browser Caching Old Scripts** | Browsers were caching older versions of `style.css` and `app.js` across reloads. | Implemented cache-busting version query parameters (`css/style.css?v=2.x`, `js/app.js?v=2.x`) in `index.html`. |
+| **Backend & Cloud API Integration** | Production frontend needed to communicate with Render backend without breaking local testing. | Implemented dynamic `API_BASE_URL` routing targeting `https://savepulse-k9d8.onrender.com` in production and local server on `localhost`. |
 | **Private Posts Failing** | Private accounts require authentication cookies not accessible via unauthenticated public endpoints. | Added explicit user feedback and error toasts informing users that only public posts are supported. |
 
 ---
