@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css?v=3.5">
+    <link rel="stylesheet" href="css/style.css?v=3.6">
 </head>
 <body>
     <!-- Top Scroll Progress Bar -->
@@ -120,6 +120,21 @@
                         </div>
                     </div>
                 </form>
+            </div>
+
+            <!-- Inline Animated Error Card -->
+            <div id="inline-error-card" class="inline-error-card hidden">
+                <div class="error-badge-icon">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div class="error-text-content">
+                    <h4 class="error-title">Unable to Fetch Media</h4>
+                    <p id="error-message-text" class="error-message">This post or profile appears to be private or requires a login.</p>
+                    <span id="error-tip-text" class="error-tip"><i class="fa-regular fa-lightbulb"></i> Tip: Please make sure the link is public and complete.</span>
+                </div>
+                <button type="button" id="close-error-btn" class="btn-close-error" title="Dismiss">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </section>
 
@@ -275,6 +290,6 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="js/app.js?v=3.5"></script>
+    <script src="js/app.js?v=3.6"></script>
 </body>
 </html>

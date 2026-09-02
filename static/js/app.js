@@ -29,6 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const mediaPreviewBox = document.getElementById('media-preview-box');
     const downloadOptionsList = document.getElementById('download-options-list');
     const toastContainer = document.getElementById('toast-container');
+    const inlineErrorCard = document.getElementById('inline-error-card');
+    const errorMessageText = document.getElementById('error-message-text');
+    const errorTipText = document.getElementById('error-tip-text');
+    const closeErrorBtn = document.getElementById('close-error-btn');
 
     // Input changes & clear button toggle
     urlInput.addEventListener('input', () => {
@@ -37,11 +41,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             clearBtn.classList.add('hidden');
         }
+        hideInlineError();
     });
 
     clearBtn.addEventListener('click', () => {
         urlInput.value = '';
         clearBtn.classList.add('hidden');
+        hideInlineError();
         urlInput.focus();
     });
 
@@ -52,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (text) {
                 urlInput.value = text.trim();
                 clearBtn.classList.remove('hidden');
+                hideInlineError();
                 showToast('Link pasted from clipboard!', 'success');
             }
         } catch (err) {
@@ -63,17 +70,25 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.classList.add('hidden');
     });
 
+    if (closeErrorBtn) {
+        closeErrorBtn.addEventListener('click', () => {
+            hideInlineError();
+        });
+    }
+
     // Handle Form Submit
     downloadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const url = urlInput.value.trim();
 
         if (!url) {
+            showInlineError('Please paste a valid social media URL.');
             showToast('Please paste a valid social media URL.', 'error');
             return;
         }
 
-        // Set Loading UI
+        // Reset UI & Errors
+        hideInlineError();
         setLoading(true);
         resultsContainer.classList.add('hidden');
 
@@ -95,11 +110,35 @@ document.addEventListener('DOMContentLoaded', () => {
             // Scroll smoothly to results
             resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } catch (error) {
+            showInlineError(error.message);
             showToast(error.message, 'error');
         } finally {
             setLoading(false);
         }
     });
+
+    function showInlineError(message) {
+        if (!inlineErrorCard) return;
+        errorMessageText.textContent = message;
+        
+        const msgLower = (message || '').toLowerCase();
+        if (msgLower.includes('private') || msgLower.includes('login')) {
+            errorTipText.innerHTML = '<i class="fa-regular fa-lightbulb"></i> Tip: This account or post is private / requires login. SavePulse only extracts public media.';
+        } else if (msgLower.includes('valid') || msgLower.includes('unsupported')) {
+            errorTipText.innerHTML = '<i class="fa-regular fa-lightbulb"></i> Tip: Paste a direct public link (e.g. instagram.com/reel/..., x.com/..., youtube.com/..., or a profile URL).';
+        } else {
+            errorTipText.innerHTML = '<i class="fa-regular fa-lightbulb"></i> Tip: Please verify the post is online or check your network connection.';
+        }
+        
+        inlineErrorCard.classList.remove('hidden');
+        inlineErrorCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function hideInlineError() {
+        if (inlineErrorCard) {
+            inlineErrorCard.classList.add('hidden');
+        }
+    }
 
     function setLoading(isLoading) {
         if (isLoading) {
