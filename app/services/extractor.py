@@ -194,8 +194,19 @@ def extract_instagram(url: str) -> Dict[str, Any]:
     # Check if this is a carousel with multiple entries
     entries = info.get("entries")
     if entries:
-        for idx, entry in enumerate(entries, 1):
+        entries_iter = iter(entries)
+        idx = 1
+        while True:
+            try:
+                entry = next(entries_iter)
+            except StopIteration:
+                break
+            except Exception:
+                idx += 1
+                continue
+
             if not entry:
+                idx += 1
                 continue
 
             entry_id = entry.get("id") or f"ig_item_{idx}"
@@ -246,6 +257,8 @@ def extract_instagram(url: str) -> Dict[str, Any]:
                     })
                     if not thumbnail:
                         thumbnail = img_url
+
+            idx += 1
 
     # Single Post (Single Video or Single Photo)
     else:
