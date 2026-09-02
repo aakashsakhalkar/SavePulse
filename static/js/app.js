@@ -469,4 +469,59 @@ document.addEventListener('DOMContentLoaded', () => {
         target.appendChild(ripple);
         setTimeout(() => ripple.remove(), 600);
     });
+
+    // Scroll Progress Bar & Back to Top Controller
+    const progressBar = document.getElementById('scroll-progress-bar');
+    const backToTopBtn = document.getElementById('back-to-top-btn');
+
+    window.addEventListener('scroll', () => {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+        
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+        }
+
+        if (backToTopBtn) {
+            if (scrollTop > 350) {
+                backToTopBtn.classList.add('is-active');
+            } else {
+                backToTopBtn.classList.remove('is-active');
+            }
+        }
+    }, { passive: true });
+
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    // Scroll-Triggered Reveal Animations (Intersection Observer)
+    const revealElements = document.querySelectorAll('.reveal-on-scroll');
+    if ('IntersectionObserver' in window && revealElements.length > 0) {
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else if (entry.boundingClientRect.top > 0) {
+                    // Smoothly re-animates when scrolled back up and down
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, {
+            root: null,
+            threshold: 0.12,
+            rootMargin: '0px 0px -30px 0px'
+        });
+
+        revealElements.forEach((el) => revealObserver.observe(el));
+    } else {
+        // Fallback if IntersectionObserver unsupported
+        revealElements.forEach((el) => el.classList.add('is-visible'));
+    }
 });

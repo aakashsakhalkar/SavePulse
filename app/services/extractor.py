@@ -449,6 +449,280 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
         }
 
 
+def is_profile_url(url: str, platform: str) -> bool:
+    """Detect if URL points to a user profile / channel instead of a specific media post."""
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path.strip("/")
+    if not path:
+        return False
+    parts = path.split("/")
+    
+    if platform == "instagram":
+        if parts[0] in ["p", "reel", "reels", "tv", "stories", "explore", "direct", "accounts", "developer", "about"]:
+            return False
+        return len(parts) == 1 and bool(parts[0])
+
+    elif platform == "tiktok":
+        return parts[0].startswith("@") and len(parts) == 1
+
+    elif platform == "twitter":
+        if parts[0] in ["status", "i", "home", "explore", "messages", "search", "notifications", "settings"]:
+            return False
+        return len(parts) == 1 and bool(parts[0])
+
+    elif platform == "youtube":
+        if parts[0].startswith("@") and len(parts) == 1:
+            return True
+        if parts[0] in ["channel", "c", "user"] and len(parts) >= 2:
+            return True
+        return False
+
+    elif platform == "reddit":
+        return parts[0] in ["user", "u"] and len(parts) >= 2
+
+    elif platform == "pinterest":
+        if parts[0] in ["pin", "search", "ideas", "today"]:
+            return False
+        return len(parts) == 1 and bool(parts[0])
+
+    return False
+
+
+async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str, Any]]:
+    """Extract HD profile picture (avatar / DP) for public accounts."""
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path.strip("/")
+    parts = path.split("/")
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/json,*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    try:
+        # 1. Instagram Profile Picture
+        if platform == "instagram":
+            username = parts[0].lstrip("@")
+            ig_api_url = f"https://www.instagram.com/api/v1/users/web_profile_info/?username={username}"
+            ig_headers = {
+                **headers,
+                "X-IG-App-ID": "936619743392459",
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": f"https://www.instagram.com/{username}/"
+            }
+            dp_url = None
+            full_name = username
+            followers_str = ""
+
+            try:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    resp = await client.get(ig_api_url, headers=ig_headers)
+                    if resp.status_code == 200:
+                        user_data = resp.json().get("data", {}).get("user", {})
+                        if user_data:
+                            hd_info = user_data.get("hd_profile_pic_url_info") or {}
+                            dp_url = hd_info.get("url") or user_data.get("profile_pic_url_hd") or user_data.get("profile_pic_url")
+                            full_name = user_data.get("full_name") or username
+                            followers = user_data.get("edge_followed_by", {}).get("count", 0)
+                            if followers:
+                                followers_str = f"{followers:,} Followers"
+            except Exception:
+                pass
+
+            # Fallback to HTML scrape
+            if not dp_url:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    resp = await client.get(f"https://www.instagram.com/{username}/", headers=headers)
+                    if resp.status_code == 200:
+                        m = re.search(r'<meta property="og:image" content="([^"]+)"', resp.text)
+                        if m:
+                            dp_url = html.unescape(m.group(1))
+
+            if dp_url:
+                title = f"{full_name} (@{username}) • Instagram Profile Picture"
+                if followers_str:
+                    title += f" • {followers_str}"
+                return {
+                    "platform": "instagram",
+                    "title": title,
+                    "author": f"@{username}",
+                    "thumbnail": dp_url,
+                    "media_type": "image",
+                    "items": [{
+                        "id": "ig_hd_dp",
+                        "type": "image",
+                        "quality": "HD Profile Picture (Original)",
+                        "ext": "jpg",
+                        "url": dp_url,
+                        "filesize_str": "Full HD"
+                    }]
+                }
+
+        # 2. Twitter / X Profile Picture
+        elif platform == "twitter":
+            username = parts[0].lstrip("@")
+            dp_url = None
+            title = f"@{username} • X Profile Picture"
+            
+            try:
+                async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+                    resp = await client.get(f"https://api.vxtwitter.com/{username}", headers=headers)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        dp_url = data.get("avatar_url") or data.get("user_profile_image_url")
+                        if dp_url:
+                            dp_url = dp_url.replace("_normal.", "_400x400.")
+                        name = data.get("user_name") or username
+                        title = f"{name} (@{username}) • X Profile Picture"
+            except Exception:
+                pass
+
+            if not dp_url:
+                async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+                    resp = await client.get(f"https://x.com/{username}", headers=headers)
+                    if resp.status_code == 200:
+                        m = re.search(r'<meta property="og:image" content="([^"]+)"', resp.text)
+                        if m:
+                            dp_url = html.unescape(m.group(1)).replace("_normal.", "_400x400.")
+
+            if dp_url:
+                return {
+                    "platform": "twitter",
+                    "title": title,
+                    "author": f"@{username}",
+                    "thumbnail": dp_url,
+                    "media_type": "image",
+                    "items": [{
+                        "id": "twitter_hd_dp",
+                        "type": "image",
+                        "quality": "HD Profile Picture (400x400)",
+                        "ext": "jpg",
+                        "url": dp_url,
+                        "filesize_str": "HD"
+                    }]
+                }
+
+        # 3. YouTube Channel Avatar
+        elif platform == "youtube":
+            clean_url = url.split("?")[0]
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(clean_url, headers=headers)
+                if resp.status_code == 200:
+                    og_match = re.search(r'<meta property="og:image" content="([^"]+)"', resp.text)
+                    title_match = re.search(r'<meta property="og:title" content="([^"]+)"', resp.text)
+                    
+                    dp_url = og_match.group(1) if og_match else None
+                    ch_title = title_match.group(1) if title_match else "YouTube Channel"
+                    
+                    if dp_url:
+                        dp_hd = re.sub(r'=s\d+-[^\"]+', '=s800-c-k-c0x00ffffff-no-rj', dp_url)
+                        return {
+                            "platform": "youtube",
+                            "title": f"{ch_title} • YouTube Avatar",
+                            "author": ch_title,
+                            "thumbnail": dp_hd,
+                            "media_type": "image",
+                            "items": [{
+                                "id": "yt_channel_dp",
+                                "type": "image",
+                                "quality": "HD Channel Avatar (800x800)",
+                                "ext": "jpg",
+                                "url": dp_hd,
+                                "filesize_str": "Full HD"
+                            }]
+                        }
+
+        # 4. Reddit User Profile Picture
+        elif platform == "reddit":
+            username = parts[1] if parts[0] in ["user", "u"] else parts[0]
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                r_headers = {**headers, "User-Agent": "SavePulse/2.0 (by u/SavePulseTeam)"}
+                resp = await client.get(f"https://www.reddit.com/user/{username}/about.json", headers=r_headers)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {})
+                    icon = data.get("icon_img") or data.get("snoovatar_img")
+                    if icon:
+                        clean_icon = icon.split("?")[0]
+                        return {
+                            "platform": "reddit",
+                            "title": f"u/{username} • Reddit Profile Avatar",
+                            "author": f"u/{username}",
+                            "thumbnail": clean_icon,
+                            "media_type": "image",
+                            "items": [{
+                                "id": "reddit_dp",
+                                "type": "image",
+                                "quality": "Reddit Avatar (Original)",
+                                "ext": "png" if clean_icon.endswith(".png") else "jpg",
+                                "url": clean_icon,
+                                "filesize_str": "Original"
+                            }]
+                        }
+
+        # 5. TikTok Profile Picture
+        elif platform == "tiktok":
+            username = parts[0]
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(f"https://www.tiktok.com/{username}", headers=headers)
+                if resp.status_code == 200:
+                    og_match = re.search(r'<meta property="og:image" content="([^"]+)"', resp.text)
+                    if og_match:
+                        dp_url = html.unescape(og_match.group(1))
+                        return {
+                            "platform": "tiktok",
+                            "title": f"{username} • TikTok Profile Picture",
+                            "author": username,
+                            "thumbnail": dp_url,
+                            "media_type": "image",
+                            "items": [{
+                                "id": "tiktok_hd_dp",
+                                "type": "image",
+                                "quality": "HD Profile Picture",
+                                "ext": "jpg",
+                                "url": dp_url,
+                                "filesize_str": "HD"
+                            }]
+                        }
+
+        # 6. Pinterest Profile Picture
+        elif platform == "pinterest":
+            username = parts[0]
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(f"https://www.pinterest.com/{username}/", headers=headers)
+                if resp.status_code == 200:
+                    og_match = re.search(r'<meta property="og:image" content="([^"]+)"', resp.text)
+                    pinimg_match = re.search(r'https://i\.pinimg\.com/(?:originals|\d+x)/[a-zA-Z0-9/_\-]+\.(?:png|jpg|jpeg)', resp.text)
+                    dp_url = None
+                    if og_match:
+                        dp_url = html.unescape(og_match.group(1))
+                        dp_url = dp_url.replace("/150x150/", "/736x/").replace("/280x280/", "/736x/")
+                    elif pinimg_match:
+                        dp_url = pinimg_match.group(0)
+
+                    if dp_url:
+                        return {
+                            "platform": "pinterest",
+                            "title": f"{username} • Pinterest Profile Picture",
+                            "author": username,
+                            "thumbnail": dp_url,
+                            "media_type": "image",
+                            "items": [{
+                                "id": "pinterest_hd_dp",
+                                "type": "image",
+                                "quality": "HD Profile Picture",
+                                "ext": "jpg",
+                                "url": dp_url,
+                                "filesize_str": "Full HD"
+                            }]
+                        }
+
+    except Exception:
+        pass
+
+    return None
+
+
 async def extract_media(url: str) -> Dict[str, Any]:
     """Unified entry point for media extraction across all platforms."""
     url = url.strip()
@@ -456,6 +730,12 @@ async def extract_media(url: str) -> Dict[str, Any]:
         url = "https://" + url
 
     platform = detect_platform(url)
+
+    # 0. Profile Picture / Avatar extraction
+    if is_profile_url(url, platform):
+        dp_result = await extract_profile_picture(url, platform)
+        if dp_result and dp_result.get("items"):
+            return dp_result
 
     # 1. Fast Reddit JSON extraction
     if platform == "reddit":
@@ -483,5 +763,5 @@ async def extract_media(url: str) -> Dict[str, Any]:
             if fallback and fallback.get("items"):
                 return fallback
         if "Private" in err_msg or "login" in err_msg.lower():
-            raise ValueError("This post appears to be private or requires a login.")
+            raise ValueError("This post or profile appears to be private or requires a login.")
         raise ValueError(f"Failed to extract media: {err_msg}")

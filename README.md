@@ -1,9 +1,9 @@
 <div align="center">
 
-  <img src="static/favicon.svg" alt="SavePulse Logo" width="100" height="100" style="border-radius: 22px; box-shadow: 0 10px 30px rgba(139, 92, 246, 0.45); margin-bottom: 18px;" />
+  <img src="static/favicon.svg" alt="SavePulse Logo" width="100" height="100" style="border-radius: 22px; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4); margin-bottom: 18px;" />
 
   # ⚡ SavePulse
-  ### Universal Public Social Media Downloader & High-Definition Media Extractor
+  ### Universal Public Social Media Downloader, HD Profile Picture & Media Extractor
 
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0+-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
   [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
@@ -13,7 +13,7 @@
   [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
   <p align="center">
-    <strong>Blazing fast, zero-auth media downloader for Instagram (Reels & 20-Image Carousels), TikTok, YouTube Shorts, Twitter/X, Reddit, Facebook, Pinterest, and 1000+ public platforms.</strong>
+    <strong>Blazing fast, zero-auth media downloader for Instagram (Reels & 20-Image Carousels), TikTok, YouTube Shorts & Channel Avatars, Twitter/X (Videos & HD Profile Pictures), Reddit, Facebook, Pinterest, and 1000+ public platforms.</strong>
   </p>
 
   ### 🌐 [Live Website: as-savepulse.netlify.app](https://as-savepulse.netlify.app/)
@@ -37,20 +37,27 @@
 - **🌐 Broad Multi-Platform Extraction**:
   - **Instagram**: Public Reels, IGTV, Video Posts, and **Full 20-Photo/Video Carousels** (swipe galleries).
   - **TikTok**: High-definition watermark-free video downloads and MP3 audio rips.
-  - **YouTube & Shorts**: High-resolution video streams (1080p, 720p, 480p) and audio extraction.
-  - **Twitter / X**: Video tweets, animated GIFs, and high-res image attachments.
+  - **YouTube & Shorts**: High-resolution video streams (1080p, 720p, 480p), audio extraction, and **800×800 HD Channel Avatars**.
+  - **Twitter / X**: Video tweets, animated GIFs, image attachments, and **Full HD 400×400 Profile Pictures**.
   - **Reddit**: Native videos (`v.redd.it`), Multi-Image Galleries, and single image posts.
   - **Facebook**: Public Reels, Facebook Watch videos, and timeline videos.
-  - **Pinterest & Threads**: High-resolution pins and public media threads.
+  - **Pinterest**: High-resolution pins and **Full-Resolution Profile Avatars**.
   - **+1000 More Sites**: Supported natively through the universal `yt-dlp` core engine.
+- **🖼️ HD Profile Picture (DP) & Channel Avatar Downloads**:
+  - Download original full-resolution profile pictures (DPs) and channel avatars from public profile links on YouTube, Twitter/X, Instagram, TikTok, and Pinterest.
 - **🖼️ Video Cover & HD Thumbnail Downloads**:
-  - One-click download for original full-resolution video cover images (`.jpg`) on all video posts.
+  - One-click download for original full-resolution video cover images (`.jpg`) on all video posts and multi-grid cards.
 - **📱 Smart Responsive Media Grid**:
   - **Single Posts**: Side-by-side card with an embedded player/image on the left and resolution options on the right.
   - **Multi-Item Collections (Carousels & Galleries up to 20+ items)**: Automatic **Responsive Grid** rendering each video/photo as an individual standalone card with its own player, index badge (`#1`, `#2` …), and direct download button.
+- **✨ Fluid Animations & Scroll Dynamics**:
+  - **Top Scroll Progress Bar**: Dynamic neon gradient progress indicator at the top of the viewport.
+  - **Scroll-Triggered Reveals**: `IntersectionObserver` spring-physics cascade for cards and sections.
+  - **Floating Back-to-Top Button**: Smooth one-click glide back to the top of the page.
+  - **Interactive Micro-Interactions**: Button click ripple wave effects, bouncing download icons, and sonar radar loader waves.
 - **🔒 100% Privacy & Zero-Auth**: Operates strictly on **public posts**. Never requests passwords, session cookies, or user credentials.
 - **⚡ High-Speed Direct Stream Proxy (`/api/download`)**: Bypasses browser CORS restrictions and streams files with auto-naming and proper content headers (`.mp4`, `.jpg`, `.mp3`).
-- **🎨 Glassmorphic Modern UI**: Radiant gradients, shimmer reflections on hover, glowing focus rings, dark-mode obsidian aesthetic, and toast notifications.
+- **🎨 Sleek Dark SaaS Aesthetic**: Obsidian frosted glass, refined slate typography, and electric indigo gradients.
 
 ---
 
@@ -60,23 +67,25 @@ SavePulse uses a decoupled full-stack architecture. The frontend is hosted on **
 
 ```mermaid
 graph TD
-    User([👤 User Browser]) -->|1. Paste Public URL| Frontend[🎨 SavePulse Frontend UI on Netlify]
+    User([👤 User Browser]) -->|1. Paste Public URL / Profile| Frontend[🎨 SavePulse Frontend UI on Netlify]
     Frontend -->|2. POST /api/extract| FastAPI[⚡ FastAPI Backend on Render.com]
     
     subgraph Backend Core on Render
         FastAPI --> Router[Unified Extractor Router]
         
+        Router -->|Profile / Channel URLs| DPEngine[HD Profile Picture & Avatar Extractor]
         Router -->|Reddit URLs| RedditEngine[Reddit JSON API Engine]
         Router -->|Instagram URLs| InstagramEngine[Instagram Carousel & Photo Extractor]
         Router -->|TikTok / YT / X / FB| YtDlpEngine[yt-dlp Core Universal Extractor]
         
-        RedditEngine --> MetadataParser[Metadata & Stream Normalizer]
+        DPEngine --> MetadataParser[Metadata & Stream Normalizer]
+        RedditEngine --> MetadataParser
         InstagramEngine --> MetadataParser
         YtDlpEngine --> MetadataParser
     end
     
-    MetadataParser -->|3. JSON Formats, Slides & Thumbnails| Frontend
-    User -->|4. Click Download Resolution / Cover| StreamProxy[GET /api/download Proxy]
+    MetadataParser -->|3. JSON Formats, Slides, DPs & Thumbnails| Frontend
+    User -->|4. Click Download Resolution / DP / Cover| StreamProxy[GET /api/download Proxy]
     StreamProxy -->|5. Chunker & Header Attachment| OriginCDN[🌐 Platform Origin CDN]
     StreamProxy -->|6. Force Direct File Download| User
 ```
@@ -94,35 +103,28 @@ sequenceDiagram
     participant Extractor as 🔍 Extractor Service
     participant CDN as 🌐 Social Media CDN
 
-    User->>UI: Paste public post link
+    User->>UI: Paste public post or profile link
     UI->>API: POST https://savepulse-k9d8.onrender.com/api/extract { url: "..." }
     API->>Extractor: extract_media(url)
     
-    alt Reddit Post
-        Extractor->>CDN: GET https://reddit.com/.../post.json
-        CDN-->>Extractor: JSON Metadata (v.redd.it / i.redd.it)
-    else Instagram (Videos & 20-Photo Carousels)
-        Extractor->>CDN: Safe Generator Iteration (InstagramIE + Thumbnails)
-        CDN-->>Extractor: Direct High-Res Slides (1..20) & Formats
-    else TikTok / YouTube / Twitter / Facebook
-        Extractor->>CDN: Intercept Media Stream Manifests (yt-dlp)
-        CDN-->>Extractor: Video formats, Bitrates & Thumbnails
+    alt Profile / Channel URL (YT, X, IG, TikTok, Pinterest)
+        Extractor->>Extractor: extract_profile_picture(url, platform)
+    else Instagram Carousel / 20-Photo Post
+        Extractor->>Extractor: extract_instagram(url) (Safe While Generator Loop)
+    else Reddit Native Video or Gallery
+        Extractor->>Extractor: extract_reddit_direct(url) (.json Fast-path)
+    else Universal Video / Post URL
+        Extractor->>Extractor: extract_with_ytdlp(url) (yt-dlp multi-format)
     end
 
-    Extractor-->>API: Normalized Media Schema
-    API-->>UI: { success: true, data: { items: [...], thumbnail, author, media_type } }
-    
-    alt Single Item Post
-        UI->>User: Render Single Player + Quality Buttons + HD Cover Option
-    else Multi-Item Carousel (2 to 20+ items)
-        UI->>User: Render Responsive Multi-Card Grid with Individual Players & Cover Buttons
-    end
-
-    User->>UI: Click "Download Video" or "Download Photo"
-    UI->>API: GET https://savepulse-k9d8.onrender.com/api/download?url=...&filename=savepulse_item.mp4
-    API->>CDN: Stream Raw Chunks (64KB Buffer)
-    API-->>User: StreamingResponse with 'Content-Disposition: attachment'
-    Note over User: Browser automatically saves file to Downloads folder
+    Extractor-->>API: Normalized JSON Response (Items, Exts, Resolutions, DPs)
+    API-->>UI: 200 OK + JSON Payload
+    UI->>User: Render Single Card / Multi-Card Grid / HD DP with Stagger Animation
+    User->>UI: Click "Download Video / Photo / DP"
+    UI->>API: GET /api/download?url=...&filename=...
+    API->>CDN: Stream Chunked Media Stream
+    CDN-->>API: Binary Chunks (video/mp4, image/jpeg, audio/mpeg)
+    API-->>User: File Attachment Stream (Content-Disposition: attachment)
 ```
 
 ---
@@ -131,120 +133,112 @@ sequenceDiagram
 
 ```
 social-media-downloader/
-│
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                     # FastAPI routes, CORS, streaming proxy, and static mounts
+│   ├── main.py                  # FastAPI Application, CORS, and Endpoints
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── schemas.py           # Pydantic Schemas (ExtractRequest, MediaResponse, MediaItem)
 │   └── services/
 │       ├── __init__.py
-│       └── extractor.py            # Unified extraction logic (Reddit JSON + Instagram Photo + yt-dlp)
-│
+│       └── extractor.py         # Extractor Engine (Profile DPs, 20-Photo Carousels, yt-dlp)
 ├── static/
-│   ├── favicon.svg                 # SavePulse custom brand icon & logo
-│   ├── index.html                  # Single-Page Application HTML5 structure
+│   ├── favicon.svg              # Brand Vector Icon
+│   ├── index.html               # Responsive Frontend Single-Page App (v3.3)
 │   ├── css/
-│   │   └── style.css               # Glassmorphism dark-mode UI, shimmer animations & responsive styling
+│   │   └── style.css            # Dark SaaS Design System, Scroll Animations & Glassmorphism
 │   └── js/
-│       └── app.js                  # Dynamic API routing, multi-card grid, thumbnail download & DOM handling
-│
-├── requirements.txt                # Python backend dependencies
-├── .gitignore                      # Git ignore rules for Python, venv & Netlify cache
-└── README.md                       # Complete documentation & system specifications
+│       └── app.js               # IntersectionObserver, Dynamic Cards, Progress Bar & API Client
+├── render.yaml                  # Render.com Infrastructure-as-Code Configuration
+├── requirements.txt             # Python Dependencies (FastAPI, uvicorn, yt-dlp, httpx, pydantic)
+├── Procfile                     # Web process definition for Render/Heroku
+└── README.md                    # Project Documentation
 ```
 
 ---
 
 ## 🔌 API Documentation
 
-Live Base URL: `https://savepulse-k9d8.onrender.com`
-
-### 1. Extract Media Metadata
-
-Extracts stream URLs, resolutions, thumbnail, author, and available download formats from any public link.
-
+### 1. Extract Media Metadata & Download URLs
 * **Endpoint**: `POST /api/extract`
-* **Content-Type**: `application/json`
-
-#### Request Body:
-```json
-{
-  "url": "https://www.instagram.com/p/DcxWNzqRd3u/"
-}
-```
-
-#### Response (200 OK):
-```json
-{
-  "success": true,
-  "data": {
+* **Request Headers**: `Content-Type: application/json`
+* **Request Body**:
+  ```json
+  {
+    "url": "https://www.instagram.com/reel/C8..."
+  }
+  ```
+* **Success Response (`200 OK`)**:
+  ```json
+  {
     "platform": "instagram",
-    "title": "Post by @creator",
-    "author": "Creator Name",
-    "thumbnail": "https://instagram.fcdn.net/.../thumb.jpg",
-    "media_type": "gallery",
+    "title": "Amazing sunset in Tokyo • Post by @creator",
+    "author": "@creator",
+    "thumbnail": "https://instagram.com/...",
+    "media_type": "video",
     "items": [
       {
-        "id": "media_item_1",
-        "type": "image",
-        "quality": "Photo #1 (Full HD)",
-        "ext": "jpg",
-        "url": "https://scontent-bom5-2.cdninstagram.com/...",
-        "filesize_str": "Original"
+        "id": "video_1080p",
+        "type": "video",
+        "quality": "1080p (MP4)",
+        "ext": "mp4",
+        "url": "https://scontent.cdninstagram.com/...",
+        "filesize_str": "14.2 MB",
+        "thumbnail": "https://scontent.cdninstagram.com/cover.jpg"
       },
       {
-        "id": "media_item_2",
-        "type": "image",
-        "quality": "Photo #2 (Full HD)",
-        "ext": "jpg",
-        "url": "https://scontent-bom2-4.cdninstagram.com/...",
-        "filesize_str": "Original"
+        "id": "audio_best",
+        "type": "audio",
+        "quality": "Audio Only (MP3)",
+        "ext": "mp3",
+        "url": "https://scontent.cdninstagram.com/audio.mp4",
+        "filesize_str": "1.8 MB"
       }
     ]
   }
-}
-```
+  ```
 
----
-
-### 2. Stream & Force Download
-
-Proxies the raw CDN media stream with customized attachment headers so the browser triggers a direct file download dialog without CORS blocks.
-
+### 2. High-Speed Direct File Download Stream
 * **Endpoint**: `GET /api/download`
 * **Query Parameters**:
-  * `url` *(string, required)*: Direct CDN stream URL returned by `/api/extract`.
-  * `filename` *(string, optional)*: Desired filename (e.g. `savepulse_instagram_1.mp4`).
+  - `url` *(string, required)*: The URL-encoded direct CDN media link.
+  - `filename` *(string, optional)*: The suggested filename for download.
+* **Example**:
+  ```http
+  GET /api/download?url=https%3A%2F%2Fscontent...&filename=instagram_video_1080p.mp4
+  ```
+* **Response**: Binary stream with `Content-Disposition: attachment; filename="..."`.
 
 ---
 
-## ☁️ Deployment Guide (Netlify + Render)
+## 🚀 Deployment Guide (Netlify + Render)
 
-### 1. Frontend on Netlify
-```powershell
-# Deploy static assets directly to production
-netlify deploy --dir=static --prod
-```
-Live URL: **`https://as-savepulse.netlify.app/`**
+### 1. Backend on Render.com
+1. Connect your GitHub repository to **Render.com**.
+2. Select **Web Service**.
+3. Set **Build Command**: `pip install -r requirements.txt`
+4. Set **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+5. Your service will be live at `https://savepulse-k9d8.onrender.com`.
 
-### 2. Backend on Render.com
-Live URL: **`https://savepulse-k9d8.onrender.com`**
-* **Runtime**: `Python 3`
-* **Build Command**: `pip install -r requirements.txt`
-* **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-* **Instance Type**: `Free`
+### 2. Frontend on Netlify
+1. Connect your repository to **Netlify** or use Netlify CLI.
+2. Deploy the static directory:
+   ```bash
+   netlify deploy --dir=static --prod
+   ```
+3. Your frontend will be live at `https://as-savepulse.netlify.app`.
 
 ---
 
 ## 🐛 Bugs, Fixes & Changelog
 
-| Issue / Bug | Root Cause | Resolution / Fix Applied |
+| Issue / Feature | Root Cause | Solution Implemented |
 | :--- | :--- | :--- |
-| **Instagram Photo Carousels Failing (`No video formats found!`)** | `yt-dlp` strictly searches for video streams (`.mp4`), throwing an exception when an Instagram post has only images (e.g. 20-photo galleries). | Built a custom safe while-loop generator extractor in `extractor.py` that parses all 20 image slides and their Full HD thumbnail URLs without crashing. |
-| **Missing Cover Photo Download Option** | Users had no direct way to download the video cover or thumbnail image. | Added a dedicated `HD Cover / Thumbnail (JPG)` option button for single posts and a secondary `Cover` button on video cards in the multi-grid. |
-| **Missing CSS & Favicon on Netlify (404s)** | Paths in `index.html` were absolute (`/static/css/style.css`), but Netlify deployed `static/` as the site root (`/`). | Converted all asset links to relative paths (`css/style.css`, `favicon.svg`, `js/app.js`), ensuring compatibility across Netlify and local servers. |
-| **Multi-Card Grid Stacking Vertically** | The outer `.result-body` container retained a fixed single-post column constraint. | Added `.result-body.is-multi` with `display: block` and `repeat(auto-fit, minmax(320px, 1fr))` grid styling so cards span full width in 2–4 side-by-side columns. |
-| **Browser Caching Old Scripts** | Browsers were caching older versions of `style.css` and `app.js` across reloads. | Implemented cache-busting version query parameters (`css/style.css?v=2.6`, `js/app.js?v=2.6`) in `index.html`. |
-| **Backend & Cloud API Integration** | Production frontend needed to communicate with Render backend without breaking local testing. | Implemented dynamic `API_BASE_URL` routing targeting `https://savepulse-k9d8.onrender.com` in production and local server on `localhost`. |
+| **Instagram 20-Photo Carousel Failure** | `yt-dlp` threw `No video formats found!` on photo-only slides, aborting iteration. | Implemented safe `while True: next(entries)` generator loop and multi-tier HTML fallback. |
+| **Video Cover & Thumbnail Downloads** | Video posts did not expose dedicated download links for their cover images. | Added dedicated HD Cover / Thumbnail download options for single posts and grid cards. |
+| **HD Profile Picture (DP) Downloads** | Profile URLs threw unhandled route errors. | Added `is_profile_url` and `extract_profile_picture` for YouTube, Twitter/X, Instagram, Pinterest, and TikTok. |
+| **Scroll Animations & UX** | Page lacked dynamic visual feedback while scrolling. | Built `IntersectionObserver` scroll reveals, dynamic scroll progress bar, and floating back-to-top button. |
+| **CORS & Direct Downloads** | Social media CDNs restrict in-browser downloads with CORS blocks. | Created `/api/download` streaming proxy with chunked streaming and auto-naming. |
 
 ---
 
@@ -252,9 +246,10 @@ Live URL: **`https://savepulse-k9d8.onrender.com`**
 
 * **Created by**: **Aakash Sakhalkar**
 * **Portfolio**: [https://aakash-sakhalkar.web.app/](https://aakash-sakhalkar.web.app/)
+* **Project Repository**: [https://github.com/aakashsakhalkar/SavePulse](https://github.com/aakashsakhalkar/SavePulse)
 
 ---
 
-## 📄 License
-
-This project is licensed under the **MIT License**. Created for educational and personal utility purposes.
+<div align="center">
+  <sub>Built with ❤️ for high-performance, seamless media preservation.</sub>
+</div>
