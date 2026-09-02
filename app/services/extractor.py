@@ -125,6 +125,45 @@ async def extract_reddit_direct(url: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+async def extract_instagram_fallback(url: str) -> Optional[Dict[str, Any]]:
+    """Direct HTTP fallback for Instagram posts when yt-dlp is blocked by IP."""
+    match = re.search(r'instagram\.com/(?:p|reel|tv|share/p)/([^/?#&]+)', url)
+    if not match:
+        return None
+    shortcode = match.group(1)
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            media_url = f"https://www.instagram.com/p/{shortcode}/media/?size=l"
+            resp = await client.get(media_url, headers=headers)
+            if resp.status_code == 200:
+                final_img_url = str(resp.url)
+                return {
+                    "platform": "instagram",
+                    "title": "Instagram Media",
+                    "author": "@instagram_user",
+                    "thumbnail": final_img_url,
+                    "media_type": "image",
+                    "items": [
+                        {
+                            "id": "ig_fallback_photo",
+                            "type": "image",
+                            "quality": "Full HD Photo",
+                            "ext": "jpg",
+                            "url": final_img_url,
+                            "filesize_str": "Original"
+                        }
+                    ]
+                }
+    except Exception:
+        pass
+    return None
+
+
 def extract_instagram(url: str) -> Dict[str, Any]:
     """Robust extractor for Instagram supporting single videos, photos, and 20-item carousels."""
     ydl_opts = {
@@ -166,7 +205,6 @@ def extract_instagram(url: str) -> Dict[str, Any]:
             # 1. Video Entry
             video_url = None
             if entry_formats:
-                # Pick best video format
                 for f in reversed(entry_formats):
                     if f.get("url") and f.get("vcodec") != "none":
                         video_url = f.get("url")
@@ -246,6 +284,9 @@ def extract_instagram(url: str) -> Dict[str, Any]:
                 })
                 if not thumbnail:
                     thumbnail = img_url
+
+    if not items:
+        raise ValueError("No media items extracted.")
 
     media_type = "gallery" if len(items) > 1 else (items[0]["type"] if items else "image")
 
@@ -409,18 +450,25 @@ async def extract_media(url: str) -> Dict[str, Any]:
         if direct_reddit and direct_reddit.get("items"):
             return direct_reddit
 
-    # 2. Specialized Instagram Extractor (handles Reels, Videos, Photos, and 20-image carousels)
+    # 2. Specialized Instagram Extractor
     if platform == "instagram":
         try:
             return extract_instagram(url)
-        except Exception as ig_err:
-            pass
+        except Exception:
+            # Direct fallback for Instagram photos/carousels
+            fallback = await extract_instagram_fallback(url)
+            if fallback and fallback.get("items"):
+                return fallback
 
     # 3. Universal yt-dlp extraction for all other platforms
     try:
         return extract_with_ytdlp(url, platform)
     except Exception as e:
         err_msg = str(e)
+        if "No video formats found" in err_msg and platform == "instagram":
+            fallback = await extract_instagram_fallback(url)
+            if fallback and fallback.get("items"):
+                return fallback
         if "Private" in err_msg or "login" in err_msg.lower():
             raise ValueError("This post appears to be private or requires a login.")
         raise ValueError(f"Failed to extract media: {err_msg}")
