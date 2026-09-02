@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css?v=2.6">
+    <link rel="stylesheet" href="css/style.css?v=2.7">
 </head>
 <body>
     <div class="background-glow top-left"></div>
@@ -120,9 +120,16 @@
 
         <!-- Loading State Indicator -->
         <div id="loading-container" class="loading-container hidden">
-            <div class="spinner-radar"></div>
-            <p class="loading-text">Analyzing link and extracting highest resolution streams...</p>
-            <span class="loading-hint">Connecting to public CDN nodes</span>
+            <div class="radar-pulse-wrapper">
+                <div class="radar-wave wave-1"></div>
+                <div class="radar-wave wave-2"></div>
+                <div class="radar-wave wave-3"></div>
+                <div class="spinner-radar">
+                    <i class="fa-solid fa-bolt-lightning radar-core-icon"></i>
+                </div>
+            </div>
+            <p class="loading-text">Analyzing & Extracting Media Streams...</p>
+            <span class="loading-hint">Resolving full resolution assets from CDN</span>
         </div>
 
         <!-- Dynamic Results Card -->
@@ -258,6 +265,6 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="js/app.js?v=2.6"></script>
+    <script src="js/app.js?v=2.7"></script>
 </body>
 </html>

@@ -170,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             items.forEach((item, index) => {
                 const card = document.createElement('div');
                 card.className = 'media-grid-card';
+                card.style.animationDelay = `${index * 45}ms`;
 
                 const cleanExt = item.ext || (item.type === 'video' ? 'mp4' : item.type === 'audio' ? 'mp3' : 'jpg');
                 const safeName = `${platform}_${Date.now()}_${index + 1}.${cleanExt}`;
@@ -449,4 +450,23 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => toast.remove(), 300);
         }, 4000);
     }
+
+    // Global Interactive Click Ripple Animation
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('.btn-submit, .card-download-btn, .card-thumb-btn, .option-btn, .btn-paste');
+        if (!target) return;
+
+        const rect = target.getBoundingClientRect();
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        const diameter = Math.max(rect.width, rect.height);
+        const radius = diameter / 2;
+
+        ripple.style.width = ripple.style.height = `${diameter}px`;
+        ripple.style.left = `${e.clientX - rect.left - radius}px`;
+        ripple.style.top = `${e.clientY - rect.top - radius}px`;
+
+        target.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+    });
 });
