@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css?v=3.3">
+    <link rel="stylesheet" href="css/style.css?v=3.5">
 </head>
 <body>
     <!-- Top Scroll Progress Bar -->
@@ -93,30 +93,32 @@
                 </div>
             </div>
 
-            <!-- Input URL Card -->
-            <div class="downloader-card">
+            <!-- Unified Downloader Command Bar -->
+            <div class="downloader-container">
                 <form id="download-form" class="url-form">
-                    <div class="input-wrapper">
+                    <div class="input-main-bar">
                         <i class="fa-solid fa-link input-icon"></i>
                         <input 
                             type="url" 
                             id="url-input" 
-                            placeholder="Paste public link or profile (e.g. instagram.com/reel/... or x.com/elonmusk)" 
+                            placeholder="Paste link or profile (e.g. instagram.com/reel/... or x.com/elonmusk)" 
                             required 
                             autocomplete="off"
                             spellcheck="false"
                         />
-                        <button type="button" id="paste-btn" class="btn-paste" title="Paste from Clipboard">
-                            <i class="fa-regular fa-paste"></i> Paste
-                        </button>
-                        <button type="button" id="clear-btn" class="btn-clear hidden" title="Clear URL">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
+                        <div class="input-actions-group">
+                            <button type="button" id="paste-btn" class="btn-paste" title="Paste from Clipboard">
+                                <i class="fa-regular fa-paste"></i> <span>Paste</span>
+                            </button>
+                            <button type="button" id="clear-btn" class="btn-clear hidden" title="Clear URL">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            <button type="submit" id="submit-btn" class="btn-submit">
+                                <span class="btn-text"><i class="fa-solid fa-cloud-arrow-down"></i> Fetch Media</span>
+                                <span class="btn-loader hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                            </button>
+                        </div>
                     </div>
-                    <button type="submit" id="submit-btn" class="btn-submit">
-                        <span class="btn-text"><i class="fa-solid fa-cloud-arrow-down"></i> Fetch Media</span>
-                        <span class="btn-loader hidden"><i class="fa-solid fa-circle-notch fa-spin"></i> Processing...</span>
-                    </button>
                 </form>
             </div>
         </section>
@@ -273,6 +275,6 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="js/app.js?v=3.3"></script>
+    <script src="js/app.js?v=3.5"></script>
 </body>
 </html>

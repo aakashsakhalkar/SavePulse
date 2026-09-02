@@ -237,6 +237,8 @@ social-media-downloader/
 | **Instagram 20-Photo Carousel Failure** | `yt-dlp` threw `No video formats found!` on photo-only slides, aborting iteration. | Implemented safe `while True: next(entries)` generator loop and multi-tier HTML fallback. |
 | **Video Cover & Thumbnail Downloads** | Video posts did not expose dedicated download links for their cover images. | Added dedicated HD Cover / Thumbnail download options for single posts and grid cards. |
 | **HD Profile Picture (DP) Downloads** | Profile URLs threw unhandled route errors. | Added `is_profile_url` and `extract_profile_picture` for YouTube, Twitter/X, Instagram, Pinterest, and TikTok. |
+| **Unified Command Search Bar** | Separate form wrappers caused button line breaks and dead space. | Redesigned into a single, cohesive frosted glass command bar with docked action controls. |
+| **Contained Loader Animation** | Pulsing radar sonar waves scaled outside bounds and overlapped text. | Contained loader inside dedicated status pill with `overflow: hidden`, scale limits, and z-index layers. |
 | **Scroll Animations & UX** | Page lacked dynamic visual feedback while scrolling. | Built `IntersectionObserver` scroll reveals, dynamic scroll progress bar, and floating back-to-top button. |
 | **CORS & Direct Downloads** | Social media CDNs restrict in-browser downloads with CORS blocks. | Created `/api/download` streaming proxy with chunked streaming and auto-naming. |
 
