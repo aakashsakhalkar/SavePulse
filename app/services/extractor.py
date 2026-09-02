@@ -1,9 +1,11 @@
+import html
 import json
 import re
 import urllib.parse
 from typing import Any, Dict, List, Optional
 import httpx
 import yt_dlp
+from yt_dlp.extractor.instagram import InstagramIE
 
 
 def detect_platform(url: str) -> str:
@@ -83,7 +85,6 @@ async def extract_reddit_direct(url: str) -> Optional[Dict[str, Any]]:
                     s = meta.get("s", {})
                     img_url = s.get("u") or s.get("gif")
                     if img_url:
-                        # Decode HTML entities in reddit URLs (e.g. &amp; -> &)
                         img_url = img_url.replace("&amp;", "&")
                         items.append({
                             "id": f"gallery_img_{idx}",
@@ -124,8 +125,142 @@ async def extract_reddit_direct(url: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def extract_instagram(url: str) -> Dict[str, Any]:
+    """Robust extractor for Instagram supporting single videos, photos, and 20-item carousels."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+    }
+
+    ydl = yt_dlp.YoutubeDL(ydl_opts)
+    ie = InstagramIE(ydl)
+    
+    info = ie._real_extract(url)
+    if not info:
+        raise ValueError("Could not extract Instagram post data.")
+
+    title = info.get("title") or info.get("description") or "Instagram Post"
+    if title and len(title) > 120:
+        title = title[:117] + "..."
+
+    author = info.get("uploader") or info.get("uploader_id") or info.get("channel") or "@instagram_user"
+    thumbnail = info.get("thumbnail") or ""
+
+    items: List[Dict[str, Any]] = []
+
+    # Check if this is a carousel with multiple entries
+    entries = info.get("entries")
+    if entries:
+        for idx, entry in enumerate(entries, 1):
+            if not entry:
+                continue
+
+            entry_id = entry.get("id") or f"ig_item_{idx}"
+            entry_formats = entry.get("formats", [])
+            entry_thumbnails = entry.get("thumbnails", [])
+            
+            # 1. Video Entry
+            video_url = None
+            if entry_formats:
+                # Pick best video format
+                for f in reversed(entry_formats):
+                    if f.get("url") and f.get("vcodec") != "none":
+                        video_url = f.get("url")
+                        break
+            if not video_url and entry.get("url") and entry.get("ext") in ["mp4", "webm"]:
+                video_url = entry.get("url")
+
+            if video_url:
+                thumb = entry.get("thumbnail") or (entry_thumbnails[-1]["url"] if entry_thumbnails else "")
+                items.append({
+                    "id": f"media_item_{idx}",
+                    "type": "video",
+                    "quality": f"Video #{idx} (HD)",
+                    "ext": "mp4",
+                    "url": video_url,
+                    "thumbnail": thumb,
+                    "filesize_str": format_filesize(entry.get("filesize") or entry.get("filesize_approx"))
+                })
+                if not thumbnail and thumb:
+                    thumbnail = thumb
+
+            # 2. Photo Entry
+            else:
+                img_url = ""
+                if entry_thumbnails:
+                    img_url = entry_thumbnails[-1].get("url")
+                if not img_url and entry.get("url"):
+                    img_url = entry.get("url")
+
+                if img_url:
+                    items.append({
+                        "id": f"media_item_{idx}",
+                        "type": "image",
+                        "quality": f"Photo #{idx} (Full HD)",
+                        "ext": "jpg",
+                        "url": img_url,
+                        "thumbnail": img_url,
+                        "filesize_str": "Original"
+                    })
+                    if not thumbnail:
+                        thumbnail = img_url
+
+    # Single Post (Single Video or Single Photo)
+    else:
+        formats = info.get("formats", [])
+        video_formats = []
+
+        for fmt in formats:
+            fmt_url = fmt.get("url")
+            if not fmt_url:
+                continue
+            if fmt.get("vcodec", "none") != "none":
+                height = fmt.get("height") or 1080
+                video_formats.append({
+                    "id": f"video_{fmt.get('format_id')}",
+                    "type": "video",
+                    "quality": f"{height}p (MP4)",
+                    "ext": "mp4",
+                    "url": fmt_url,
+                    "filesize_str": format_filesize(fmt.get("filesize") or fmt.get("filesize_approx"))
+                })
+
+        if video_formats:
+            items.extend(video_formats[:4])
+        else:
+            # Single photo post
+            thumbnails = info.get("thumbnails", [])
+            img_url = (thumbnails[-1]["url"] if thumbnails else "") or info.get("url")
+            if img_url:
+                items.append({
+                    "id": "single_photo",
+                    "type": "image",
+                    "quality": "Original Photo (Full HD)",
+                    "ext": "jpg",
+                    "url": img_url,
+                    "filesize_str": "Original"
+                })
+                if not thumbnail:
+                    thumbnail = img_url
+
+    media_type = "gallery" if len(items) > 1 else (items[0]["type"] if items else "image")
+
+    return {
+        "platform": "instagram",
+        "title": title,
+        "author": author,
+        "thumbnail": thumbnail,
+        "media_type": media_type,
+        "items": items
+    }
+
+
 def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
-    """Universal extractor powered by yt-dlp."""
+    """Universal extractor for TikTok, YouTube, Twitter/X, Facebook, and other platforms."""
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
@@ -143,7 +278,6 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
             raise ValueError("Unable to extract media information from this URL.")
 
         title = info.get("title") or info.get("description") or f"{platform.title()} Media"
-        # Truncate long descriptions to a clean title
         if title and len(title) > 120:
             title = title[:117] + "..."
 
@@ -152,10 +286,11 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
 
         items: List[Dict[str, Any]] = []
 
-        # Check if there are entries (playlist / multi-media / carousel)
         entries = info.get("entries")
         if entries:
             for idx, entry in enumerate(entries, 1):
+                if not entry:
+                    continue
                 entry_url = entry.get("url") or entry.get("webpage_url")
                 entry_thumb = entry.get("thumbnail", "")
                 entry_ext = entry.get("ext", "mp4")
@@ -171,7 +306,6 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                     thumbnail = entry_thumb
         else:
             formats = info.get("formats", [])
-            # Filter and sort video formats by resolution/bitrate
             video_formats = []
             audio_formats = []
 
@@ -209,10 +343,8 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                         "filesize_str": format_filesize(filesize)
                     })
 
-            # Sort video formats descending by resolution/bitrate
             video_formats.sort(key=lambda x: (x.get("height", 0), x.get("tbr", 0)), reverse=True)
 
-            # Pick unique resolution levels (e.g. 1080p, 720p, 480p, 360p)
             seen_resolutions = set()
             for v_fmt in video_formats:
                 q = v_fmt["quality"]
@@ -229,7 +361,6 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                 if len(items) >= 4:
                     break
 
-            # Fallback if no specific formats list was parsed but direct url exists
             if not items and info.get("url"):
                 ext = info.get("ext", "mp4")
                 items.append({
@@ -241,7 +372,6 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                     "filesize_str": format_filesize(info.get("filesize"))
                 })
 
-            # Add Best Audio option if available
             if audio_formats:
                 best_audio = audio_formats[0]
                 items.append({
@@ -253,15 +383,7 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                     "filesize_str": best_audio["filesize_str"]
                 })
 
-        # Determine media_type
-        if entries and len(entries) > 1:
-            media_type = "gallery"
-        elif all(item.get("type") == "image" for item in items):
-            media_type = "image"
-        elif any(item.get("type") == "video" for item in items):
-            media_type = "video"
-        else:
-            media_type = "image"
+        media_type = "gallery" if entries and len(entries) > 1 else ("video" if any(i.get("type") == "video" for i in items) else "image")
 
         return {
             "platform": platform,
@@ -274,7 +396,7 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
 
 
 async def extract_media(url: str) -> Dict[str, Any]:
-    """Unified entry point for media extraction."""
+    """Unified entry point for media extraction across all platforms."""
     url = url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
@@ -287,11 +409,17 @@ async def extract_media(url: str) -> Dict[str, Any]:
         if direct_reddit and direct_reddit.get("items"):
             return direct_reddit
 
-    # 2. Universal yt-dlp extraction
+    # 2. Specialized Instagram Extractor (handles Reels, Videos, Photos, and 20-image carousels)
+    if platform == "instagram":
+        try:
+            return extract_instagram(url)
+        except Exception as ig_err:
+            pass
+
+    # 3. Universal yt-dlp extraction for all other platforms
     try:
         return extract_with_ytdlp(url, platform)
     except Exception as e:
-        # If reddit fallback or other error, provide clear guidance
         err_msg = str(e)
         if "Private" in err_msg or "login" in err_msg.lower():
             raise ValueError("This post appears to be private or requires a login.")

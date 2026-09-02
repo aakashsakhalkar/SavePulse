@@ -177,10 +177,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Card Preview Content
                 let mediaElementHtml = '';
+                const cardThumb = item.thumbnail || (item.type === 'video' ? thumbnail : '');
+
                 if (item.type === 'video') {
-                    mediaElementHtml = `<video src="${item.url}" controls poster="${thumbnail || ''}" preload="metadata" playsinline></video>`;
+                    mediaElementHtml = `<video src="${item.url}" controls poster="${cardThumb || ''}" preload="metadata" playsinline></video>`;
                 } else {
                     mediaElementHtml = `<img src="${item.url || thumbnail}" alt="Item ${index + 1}" loading="lazy">`;
+                }
+
+                // Thumbnail cover button for video cards
+                let thumbBtnHtml = '';
+                if (item.type === 'video' && cardThumb && cardThumb.startsWith('http')) {
+                    const thumbName = `${platform}_${Date.now()}_${index + 1}_cover.jpg`;
+                    const thumbHref = `${API_BASE_URL}/api/download?url=${encodeURIComponent(cardThumb)}&filename=${encodeURIComponent(thumbName)}`;
+                    thumbBtnHtml = `
+                        <a href="${thumbHref}" download="${thumbName}" class="card-thumb-btn" title="Download HD Cover Image">
+                            <i class="fa-solid fa-image"></i> Cover
+                        </a>
+                    `;
                 }
 
                 card.innerHTML = `
@@ -194,9 +208,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="card-quality">${item.quality || `Item #${index + 1}`}</span>
                             <span class="card-size">${(item.ext || '').toUpperCase()} • ${item.filesize_str || 'HD'}</span>
                         </div>
-                        <a href="${downloadHref}" download="${safeName}" class="card-download-btn">
-                            <i class="fa-solid fa-download"></i> Download ${item.type === 'video' ? 'Video' : 'Photo'}
-                        </a>
+                        <div class="card-actions-row">
+                            <a href="${downloadHref}" download="${safeName}" class="card-download-btn">
+                                <i class="fa-solid fa-download"></i> Download ${item.type === 'video' ? 'Video' : 'Photo'}
+                            </a>
+                            ${thumbBtnHtml}
+                        </div>
                     </div>
                 `;
 
@@ -205,6 +222,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 dBtn.addEventListener('click', () => {
                     showToast(`Downloading Item #${index + 1}...`, 'success');
                 });
+
+                const tBtn = card.querySelector('.card-thumb-btn');
+                if (tBtn) {
+                    tBtn.addEventListener('click', () => {
+                        showToast(`Downloading Cover #${index + 1}...`, 'success');
+                    });
+                }
 
                 cardsGrid.appendChild(card);
             });
@@ -267,6 +291,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     optionsList.appendChild(btn);
                 });
+
+                // Add HD Thumbnail Download Option if available
+                if (thumbnail && thumbnail.startsWith('http')) {
+                    const thumbBtn = document.createElement('a');
+                    thumbBtn.className = 'option-btn option-btn-thumb';
+                    const thumbName = `${platform}_${Date.now()}_thumbnail.jpg`;
+                    thumbBtn.href = `${API_BASE_URL}/api/download?url=${encodeURIComponent(thumbnail)}&filename=${encodeURIComponent(thumbName)}`;
+                    thumbBtn.setAttribute('download', thumbName);
+
+                    thumbBtn.innerHTML = `
+                        <div class="option-meta">
+                            <span class="option-label">HD Cover / Thumbnail</span>
+                            <span class="option-ext">JPG • Original Cover</span>
+                        </div>
+                        <div class="option-icon"><i class="fa-solid fa-image"></i></div>
+                    `;
+
+                    thumbBtn.addEventListener('click', () => {
+                        showToast('Downloading HD Thumbnail...', 'success');
+                    });
+                    optionsList.appendChild(thumbBtn);
+                }
             }
         }
 
