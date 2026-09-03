@@ -112,10 +112,13 @@ async def extract_reddit_direct(url: str) -> Optional[Dict[str, Any]]:
                 thumbnail = img_url
 
         if items:
+            description = post_data.get("selftext") or title
             return {
                 "platform": "reddit",
                 "title": title,
                 "author": f"u/{author}",
+                "author_id": f"u/{author}",
+                "description": description,
                 "thumbnail": thumbnail or (items[0]["url"] if items[0]["type"] == "image" else ""),
                 "media_type": items[0]["type"] if len(items) == 1 else "gallery",
                 "items": items
@@ -145,7 +148,9 @@ async def extract_instagram_fallback(url: str) -> Optional[Dict[str, Any]]:
                 return {
                     "platform": "instagram",
                     "title": "Instagram Media",
-                    "author": "@instagram_user",
+                    "author": "@instagram_creator",
+                    "author_id": "@instagram_creator",
+                    "description": "Public media post from Instagram.",
                     "thumbnail": final_img_url,
                     "media_type": "image",
                     "items": [
@@ -187,7 +192,12 @@ def extract_instagram(url: str) -> Dict[str, Any]:
         title = title[:117] + "..."
 
     author = info.get("uploader") or info.get("uploader_id") or info.get("channel") or "@instagram_user"
+    
+    # Harvester for highest resolution thumbnail
     thumbnail = info.get("thumbnail") or ""
+    thumbnails = info.get("thumbnails") or []
+    if thumbnails:
+        thumbnail = thumbnails[-1].get("url") or thumbnail
 
     items: List[Dict[str, Any]] = []
 
@@ -224,7 +234,7 @@ def extract_instagram(url: str) -> Dict[str, Any]:
                 video_url = entry.get("url")
 
             if video_url:
-                thumb = entry.get("thumbnail") or (entry_thumbnails[-1]["url"] if entry_thumbnails else "")
+                thumb = entry.get("thumbnail") or (entry_thumbnails[-1]["url"] if entry_thumbnails else "") or thumbnail
                 items.append({
                     "id": f"media_item_{idx}",
                     "type": "video",
@@ -272,19 +282,49 @@ def extract_instagram(url: str) -> Dict[str, Any]:
             if fmt.get("vcodec", "none") != "none":
                 height = fmt.get("height") or 1080
                 video_formats.append({
-                    "id": f"video_{fmt.get('format_id')}",
+                    "id": f"video_{fmt.get('format_id', 'hd')}",
                     "type": "video",
                     "quality": f"{height}p (MP4)",
                     "ext": "mp4",
                     "url": fmt_url,
+                    "height": height,
+                    "thumbnail": thumbnail,
                     "filesize_str": format_filesize(fmt.get("filesize") or fmt.get("filesize_approx"))
                 })
 
         if video_formats:
-            items.extend(video_formats[:4])
+            # Sort descending and deduplicate identical resolutions
+            video_formats.sort(key=lambda x: x.get("height", 0), reverse=True)
+            seen_resolutions = set()
+            for v_fmt in video_formats:
+                q = v_fmt["quality"]
+                if q not in seen_resolutions:
+                    seen_resolutions.add(q)
+                    items.append({
+                        "id": v_fmt["id"],
+                        "type": "video",
+                        "quality": v_fmt["quality"],
+                        "ext": "mp4",
+                        "url": v_fmt["url"],
+                        "thumbnail": thumbnail,
+                        "filesize_str": v_fmt["filesize_str"]
+                    })
+                if len(items) >= 3:
+                    break
+
+            # Fallback if formats lacked vcodec tags
+            if not items and info.get("url"):
+                items.append({
+                    "id": "single_video_best",
+                    "type": "video",
+                    "quality": "Best Quality (HD)",
+                    "ext": "mp4",
+                    "url": info["url"],
+                    "thumbnail": thumbnail,
+                    "filesize_str": format_filesize(info.get("filesize"))
+                })
         else:
             # Single photo post
-            thumbnails = info.get("thumbnails", [])
             img_url = (thumbnails[-1]["url"] if thumbnails else "") or info.get("url")
             if img_url:
                 items.append({
@@ -293,6 +333,7 @@ def extract_instagram(url: str) -> Dict[str, Any]:
                     "quality": "Original Photo (Full HD)",
                     "ext": "jpg",
                     "url": img_url,
+                    "thumbnail": img_url,
                     "filesize_str": "Original"
                 })
                 if not thumbnail:
@@ -301,12 +342,23 @@ def extract_instagram(url: str) -> Dict[str, Any]:
     if not items:
         raise ValueError("No media items extracted.")
 
-    media_type = "gallery" if len(items) > 1 else (items[0]["type"] if items else "image")
+    # Strictly assign media_type: only multi-item albums become "gallery"
+    if entries and len(items) > 1:
+        media_type = "gallery"
+    elif any(i.get("type") == "video" for i in items):
+        media_type = "video"
+    else:
+        media_type = "image"
+
+    description = info.get("description") or info.get("title") or "Instagram media post."
+    author_id = f"@{info.get('uploader_id')}" if info.get('uploader_id') and not str(info.get('uploader_id')).startswith('@') else (info.get('uploader_id') or author)
 
     return {
         "platform": "instagram",
         "title": title,
         "author": author,
+        "author_id": author_id,
+        "description": description,
         "thumbnail": thumbnail,
         "media_type": media_type,
         "items": items
@@ -335,7 +387,9 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
         if title and len(title) > 120:
             title = title[:117] + "..."
 
-        author = info.get("uploader") or info.get("uploader_id") or info.get("channel") or "Unknown"
+        author = info.get("uploader") or info.get("channel") or info.get("uploader_id") or f"{platform.capitalize()} Creator"
+        author_id = f"@{info.get('uploader_id')}" if info.get('uploader_id') and not str(info.get('uploader_id')).startswith('@') else (info.get('uploader_id') or author)
+        description = info.get("description") or info.get("title") or f"Public post from {platform.capitalize()}."
         thumbnail = info.get("thumbnail") or ""
 
         items: List[Dict[str, Any]] = []
@@ -354,6 +408,7 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                     "quality": f"Item #{idx} ({entry.get('resolution') or 'HD'})",
                     "ext": entry_ext,
                     "url": entry_url,
+                    "thumbnail": entry_thumb or thumbnail,
                     "filesize_str": format_filesize(entry.get("filesize") or entry.get("filesize_approx"))
                 })
                 if not thumbnail and entry_thumb:
@@ -385,6 +440,7 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                         "url": fmt_url,
                         "height": height or 0,
                         "tbr": fmt.get("tbr") or 0,
+                        "thumbnail": thumbnail,
                         "filesize_str": format_filesize(filesize)
                     })
                 elif acodec != "none" and vcodec == "none":
@@ -410,6 +466,7 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                         "quality": f"{q} (MP4)",
                         "ext": "mp4",
                         "url": v_fmt["url"],
+                        "thumbnail": thumbnail,
                         "filesize_str": v_fmt["filesize_str"]
                     })
                 if len(items) >= 4:
@@ -423,6 +480,7 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
                     "quality": "Best Quality",
                     "ext": ext,
                     "url": info["url"],
+                    "thumbnail": thumbnail,
                     "filesize_str": format_filesize(info.get("filesize"))
                 })
 
@@ -443,6 +501,8 @@ def extract_with_ytdlp(url: str, platform: str) -> Dict[str, Any]:
             "platform": platform,
             "title": title or f"{platform.capitalize()} Download",
             "author": author,
+            "author_id": author_id,
+            "description": description,
             "thumbnail": thumbnail,
             "media_type": media_type,
             "items": items
@@ -546,7 +606,9 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
                 return {
                     "platform": "instagram",
                     "title": title,
-                    "author": f"@{username}",
+                    "author": full_name or f"@{username}",
+                    "author_id": f"@{username}",
+                    "description": f"Instagram Profile of {full_name} (@{username}). {followers_str}",
                     "thumbnail": dp_url,
                     "media_type": "image",
                     "items": [{
@@ -564,6 +626,7 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
             username = parts[0].lstrip("@")
             dp_url = None
             title = f"@{username} • X Profile Picture"
+            name = username
             
             try:
                 async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -590,7 +653,9 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
                 return {
                     "platform": "twitter",
                     "title": title,
-                    "author": f"@{username}",
+                    "author": name or f"@{username}",
+                    "author_id": f"@{username}",
+                    "description": f"X (Twitter) Profile Picture for {name} (@{username}).",
                     "thumbnail": dp_url,
                     "media_type": "image",
                     "items": [{
@@ -621,6 +686,8 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
                             "platform": "youtube",
                             "title": f"{ch_title} • YouTube Avatar",
                             "author": ch_title,
+                            "author_id": ch_title,
+                            "description": f"Official YouTube Channel Avatar for {ch_title}.",
                             "thumbnail": dp_hd,
                             "media_type": "image",
                             "items": [{
@@ -648,6 +715,8 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
                             "platform": "reddit",
                             "title": f"u/{username} • Reddit Profile Avatar",
                             "author": f"u/{username}",
+                            "author_id": f"u/{username}",
+                            "description": f"Reddit Avatar for u/{username}.",
                             "thumbnail": clean_icon,
                             "media_type": "image",
                             "items": [{
@@ -673,6 +742,8 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
                             "platform": "tiktok",
                             "title": f"{username} • TikTok Profile Picture",
                             "author": username,
+                            "author_id": username,
+                            "description": f"TikTok Profile Picture for {username}.",
                             "thumbnail": dp_url,
                             "media_type": "image",
                             "items": [{
@@ -705,6 +776,8 @@ async def extract_profile_picture(url: str, platform: str) -> Optional[Dict[str,
                             "platform": "pinterest",
                             "title": f"{username} • Pinterest Profile Picture",
                             "author": username,
+                            "author_id": username,
+                            "description": f"Pinterest Profile Picture for {username}.",
                             "thumbnail": dp_url,
                             "media_type": "image",
                             "items": [{

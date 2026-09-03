@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderResults(mediaData) {
-        const { platform, title, author, thumbnail, media_type, items } = mediaData;
+        const { platform, title, author, author_id, description, thumbnail, media_type, items } = mediaData;
 
         // 1. Badges & Metadata
         const platformIcons = {
@@ -180,10 +180,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         typeBadge.innerHTML = typeIcons[media_type] || '<i class="fa-solid fa-file"></i> Media';
 
-        resultAuthor.textContent = author || '@creator';
+        resultAuthor.textContent = author || 'Public Creator';
         resultTitle.textContent = title || 'Social Media Download';
 
         const resultBody = document.querySelector('.result-body');
+        const displayAuthor = author || 'Public Creator';
+        const displayHandle = author_id || (author ? `@${author.replace(/\s+/g, '').toLowerCase()}` : '@creator');
+        const displayDesc = description || title || 'No caption provided for this post.';
 
         // MULTI-ITEM POST (2 to 20+ images/videos)
         if (items && items.length > 1 && (media_type === 'gallery' || isMultiItem(items))) {
@@ -196,9 +199,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             multiWrapper.innerHTML = `
                 <div class="multi-grid-header">
+                    <div class="author-row">
+                        <div class="author-avatar"><i class="fa-solid fa-user"></i></div>
+                        <div class="author-info">
+                            <span class="author-name">${displayAuthor}</span>
+                            <span class="author-sub">${displayHandle}</span>
+                        </div>
+                    </div>
                     <div class="multi-grid-meta">
                         <span class="multi-count-badge"><i class="fa-solid fa-layer-group"></i> ${items.length} Media Items Found</span>
-                        <h3 class="post-title" style="margin-bottom:0; font-size:1.1rem;">${title || 'Multi-Item Collection'}</h3>
+                        <h3 class="post-title" style="margin-bottom:0.5rem; font-size:1.15rem;">${title || 'Multi-Item Collection'}</h3>
+                        <div class="post-description-card">
+                            <p class="description-text">${displayDesc}</p>
+                        </div>
                     </div>
                 </div>
             `;
@@ -286,11 +299,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="author-row">
                         <div class="author-avatar"><i class="fa-solid fa-user"></i></div>
                         <div class="author-info">
-                            <span id="result-author" class="author-name">${author || '@creator'}</span>
-                            <span class="author-sub">Public Creator</span>
+                            <span id="result-author" class="author-name">${displayAuthor}</span>
+                            <span class="author-sub">${displayHandle}</span>
                         </div>
                     </div>
                     <h3 id="result-title" class="post-title">${title || 'Social Media Download'}</h3>
+
+                    <div class="post-description-card">
+                        <div class="description-header">
+                            <i class="fa-regular fa-comment-dots"></i> <span>Caption / Description</span>
+                        </div>
+                        <p class="description-text">${displayDesc}</p>
+                    </div>
 
                     <div class="downloads-section">
                         <h4 class="section-heading"><i class="fa-solid fa-download"></i> Available Formats</h4>

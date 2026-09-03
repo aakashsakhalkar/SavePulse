@@ -13,7 +13,7 @@
   [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
   <p align="center">
-    <strong>Blazing-fast, zero-auth media downloader for Instagram (Reels & 20-Image Carousels), TikTok, YouTube Shorts, Twitter/X, Reddit, Facebook, Pinterest, HD Profile Pictures, and 1000+ public platforms.</strong>
+    <strong>Blazing-fast, zero-auth media downloader for Instagram (Reels, Videos & 20-Image Carousels), TikTok, YouTube Shorts, Twitter/X, Reddit, Facebook, Pinterest, HD Profile Pictures, and 1000+ public platforms.</strong>
   </p>
 
   ### 🌐 [Live Production Web App: as-savepulse.netlify.app](https://as-savepulse.netlify.app/)
@@ -22,6 +22,7 @@
   [Features Timeline](#-features-timeline) •
   [Bugs & Fixes History](#-bugs-fixes--stability-log) •
   [System Architecture](#-system-architecture) •
+  [Decision & Extraction Flow](#-decision--extraction-flow) •
   [Data Flow Pipeline](#-data-flow--extraction-pipeline) •
   [Visuals & UI Design System](#-visuals--ui-design-system) •
   [Project Structure](#-project-structure) •
@@ -37,6 +38,10 @@
 
 | Release Date | Feature | Platform / Scope | Description |
 | :--- | :--- | :--- | :--- |
+| **Sep 03, 2026** | **Creator Info & Handle Identification** | Backend & UI | Automatically extracts creator display names, `@handle` IDs, and identity credentials with smart fallback defaults (`"Public Creator"`). |
+| **Sep 03, 2026** | **Full Post Caption & Description Card** | Frontend UI | Integrated frosted glass scrollable description card (`.post-description-card`) rendering full post text, hashtags, and captions. |
+| **Sep 03, 2026** | **Instagram Video Stream Deduplication** | Extractor Engine | Filters duplicate stream formats by resolution and bitrate, eliminating duplicate download buttons and multi-card false positives. |
+| **Sep 03, 2026** | **High-Resolution Video Cover Harvester** | Backend Extractor | Extracts full-resolution poster thumbnails from nested platform metadata for single players and multi-card grids. |
 | **Sep 02, 2026** | **Animated Inline Error Card** | Frontend UI | Slide-down animated warning banner with pulsing alert shield, dynamic context-aware troubleshooting tips, and instant dismissal. |
 | **Sep 02, 2026** | **Unified Command Search Bar** | Frontend UI | Single continuous frosted-glass pill bar with docked Link Icon, Paste Button, Clear Button, and Fetch CTA (Raycast / Linear style). |
 | **Sep 02, 2026** | **Contained Sonar Radar Loader** | Frontend UI | Contained status card with `overflow: hidden`, 1.6× bounded wave scale, and isolated z-index typography to eliminate overlaps. |
@@ -55,6 +60,7 @@
 
 | Incident Date | Severity | Issue Reported | Root Cause | Solution Implemented |
 | :--- | :--- | :--- | :--- | :--- |
+| **Sep 03, 2026** | High | **Instagram Single Video Duplication & Empty Thumbnails** | Multiple progressive MP4 formats lacked deduplication, causing 2–3 identical cards and triggering false `media_type: "gallery"`. | Implemented `seen_resolutions` deduplication filter, strictly assigned `media_type: "video"`, and added nested thumbnail cover harvesting. |
 | **Sep 02, 2026** | Medium | **Loader Animation Text Overlap** | Radar sonar pulse waves scaled to `2.4×`, causing expanding rings to bleed out over search bar and status text. | Boxed loader inside a dedicated frosted status card with `overflow: hidden`, reduced wave scale to `1.6×`, and enforced layered z-indexes. |
 | **Sep 02, 2026** | Low | **Search Button Line Break & Dead Space** | Nested flexbox rules caused the "Fetch Media" button to drop to a second row left-aligned, leaving empty dark space. | Redesigned form into a single continuous frosted pill (`.input-main-bar`) with docked action controls. |
 | **Sep 02, 2026** | Medium | **Unhandled Profile / Channel URLs** | Inputting `x.com/username` or channel URLs triggered extractor errors looking for media IDs. | Created `is_profile_url` route splitter and `extract_profile_picture` handler for HD avatars. |
@@ -78,19 +84,48 @@ graph TD
         
         Router -->|Profile / Channel URLs| DPEngine[HD Profile Picture & Avatar Extractor]
         Router -->|Reddit URLs| RedditEngine[Reddit JSON API Engine]
-        Router -->|Instagram URLs| InstagramEngine[Instagram Carousel & Photo Extractor]
+        Router -->|Instagram URLs| InstagramEngine[Instagram Carousel & Video Extractor]
         Router -->|TikTok / YT / X / FB| YtDlpEngine[yt-dlp Core Universal Extractor]
         
-        DPEngine --> MetadataParser[Metadata & Stream Normalizer]
-        RedditEngine --> MetadataParser
-        InstagramEngine --> MetadataParser
-        YtDlpEngine --> MetadataParser
+        DPEngine --> Deduplicator[Quality Deduplicator & Format Sorter]
+        RedditEngine --> Deduplicator
+        InstagramEngine --> Deduplicator
+        YtDlpEngine --> Deduplicator
+        
+        Deduplicator --> MetadataParser[Creator Info & Caption Normalizer]
     end
     
     MetadataParser -->|3. Normalized JSON Payload| Frontend
     User -->|4. Click Download Video / Photo / DP| StreamProxy[GET /api/download Proxy]
     StreamProxy -->|5. Chunked Binary Request| OriginCDN[🌐 Platform Origin CDN]
     StreamProxy -->|6. Force Attachment Download| User
+```
+
+---
+
+## 🧭 Decision & Extraction Flow
+
+```mermaid
+flowchart TD
+    Start([User inputs URL]) --> Validate{Valid URL format?}
+    Validate -- No --> InlineError[Display Animated Inline Error Card]
+    Validate -- Yes --> CheckType{Is Profile URL?}
+    
+    CheckType -- Yes --> ExtractDP[Fetch HD Avatar / Profile Picture]
+    CheckType -- No --> RoutePlatform{Platform Router}
+    
+    RoutePlatform -- Instagram --> ExtractIG[Instagram Engine: Deduplicate Streams & Covers]
+    RoutePlatform -- Reddit --> ExtractReddit[Reddit Engine: Native Video & Gallery]
+    RoutePlatform -- Others --> ExtractYTDLP[Universal Engine: TikTok, YT, Twitter, FB]
+    
+    ExtractDP --> ParseMeta[Attach Creator Name, Handle & Bio]
+    ExtractIG --> ParseMeta
+    ExtractReddit --> ParseMeta
+    ExtractYTDLP --> ParseMeta
+    
+    ParseMeta --> Classify{media_type?}
+    Classify -- Gallery --> RenderGrid[Render Multi-Card Carousel Grid]
+    Classify -- Video / Image --> RenderSingle[Render Single Post Card + Caption Box]
 ```
 
 ---
@@ -112,15 +147,15 @@ sequenceDiagram
     
     alt Case A: Profile / Channel URL (YT, X, IG, TikTok, Pinterest)
         Extractor->>Extractor: extract_profile_picture(url, platform)
-    else Case B: Instagram 20-Photo Carousel / Reel
-        Extractor->>Extractor: extract_instagram(url) (Safe While Generator)
+    else Case B: Instagram 20-Photo Carousel / Video
+        Extractor->>Extractor: extract_instagram(url) (Deduplicate qualities + cover)
     else Case C: Reddit Native Video / Gallery
         Extractor->>Extractor: extract_reddit_direct(url) (.json Fast-path)
     else Case D: Universal Video Post (TikTok, YouTube, FB, X)
         Extractor->>Extractor: extract_with_ytdlp(url) (Multi-resolution streams)
     end
 
-    Extractor-->>API: Normalized JSON (items, qualities, covers, avatars)
+    Extractor-->>API: Normalized JSON (creator, handle, caption, items, covers)
     API-->>UI: 200 OK + Payload
     UI->>User: Render Single Card / Multi-Grid / HD DP with Stagger Animation
     User->>UI: Click "Download Media / Cover"
@@ -139,6 +174,7 @@ SavePulse is engineered with a **modern SaaS dark design system**:
 * **Obsidian Frosted Glass**: `background: rgba(18, 20, 29, 0.85); backdrop-filter: blur(20px);`
 * **Electric Accent Gradient**: `linear-gradient(135deg, #818CF8 0%, #C084FC 50%, #38BDF8 100%)`
 * **Typography Palette**: Clean, high-legibility slate & zinc tones (`#94A3B8`, `#F1F5F9`, `#64748B`).
+* **Post Description Card**: Dedicated frosted caption card with scrollbar styling and comment indicator icon.
 * **Micro-Animations**:
   - `IntersectionObserver` scroll-triggered reveals with spring physics.
   - Top neon gradient scroll progress indicator.
@@ -154,23 +190,20 @@ social-media-downloader/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                  # FastAPI Application, CORS, Routes & Streaming Proxy
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── schemas.py           # Pydantic Validation Models (ExtractRequest, MediaResponse)
 │   └── services/
 │       ├── __init__.py
-│       └── extractor.py         # Multi-platform Extractor Engine (DPs, Carousels, yt-dlp)
+│       └── extractor.py         # Multi-platform Extractor Engine (DPs, Carousels, Creator Metadata)
 ├── static/
 │   ├── favicon.svg              # Vector Brand Icon
-│   ├── index.html               # Responsive Single-Page App (v3.6)
+│   ├── index.html               # Responsive Single-Page App (v3.7)
 │   ├── css/
-│   │   └── style.css            # Dark SaaS Design System, Scroll Dynamics & Error Cards
+│   │   └── style.css            # Dark SaaS Design System, Caption Cards & Error Banners
 │   └── js/
-│       └── app.js               # API Client, IntersectionObserver, Card Renderer & Error Handlers
+│       └── app.js               # API Client, Card Renderer, Creator Info & Error Handlers
 ├── render.yaml                  # Infrastructure-as-Code for Render.com Backend
 ├── requirements.txt             # Python Dependencies (FastAPI, uvicorn, yt-dlp, httpx, pydantic)
 ├── Procfile                     # Process definition for Render / PaaS deployment
-└── README.md                    # Project Documentation & Architecture
+└── README.md                    # Project Documentation, Diagrams & Release Timeline
 ```
 
 ---
@@ -188,30 +221,36 @@ social-media-downloader/
 * **Success Response (`200 OK`)**:
   ```json
   {
-    "platform": "instagram",
-    "title": "Amazing sunset in Tokyo • Post by @creator",
-    "author": "@creator",
-    "thumbnail": "https://instagram.com/...",
-    "media_type": "video",
-    "items": [
-      {
-        "id": "video_1080p",
-        "type": "video",
-        "quality": "1080p (MP4)",
-        "ext": "mp4",
-        "url": "https://scontent.cdninstagram.com/...",
-        "filesize_str": "14.2 MB",
-        "thumbnail": "https://scontent.cdninstagram.com/cover.jpg"
-      },
-      {
-        "id": "audio_best",
-        "type": "audio",
-        "quality": "Audio Only (MP3)",
-        "ext": "mp3",
-        "url": "https://scontent.cdninstagram.com/audio.mp4",
-        "filesize_str": "1.8 MB"
-      }
-    ]
+    "success": true,
+    "data": {
+      "platform": "instagram",
+      "title": "Amazing sunset in Tokyo",
+      "author": "Tokyo Traveler",
+      "author_id": "@tokyotraveler",
+      "description": "Captured this breathtaking view in Shibuya! 🌆 #tokyo #sunset #travel",
+      "thumbnail": "https://scontent.cdninstagram.com/cover.jpg",
+      "media_type": "video",
+      "items": [
+        {
+          "id": "video_1080p",
+          "type": "video",
+          "quality": "1080p (MP4)",
+          "ext": "mp4",
+          "url": "https://scontent.cdninstagram.com/video_1080.mp4",
+          "thumbnail": "https://scontent.cdninstagram.com/cover.jpg",
+          "filesize_str": "14.2 MB"
+        },
+        {
+          "id": "video_720p",
+          "type": "video",
+          "quality": "720p (MP4)",
+          "ext": "mp4",
+          "url": "https://scontent.cdninstagram.com/video_720.mp4",
+          "thumbnail": "https://scontent.cdninstagram.com/cover.jpg",
+          "filesize_str": "8.4 MB"
+        }
+      ]
+    }
   }
   ```
 
